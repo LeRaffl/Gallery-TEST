@@ -74,17 +74,6 @@ dialog#lightbox::backdrop{background:rgba(0,0,0,.6)}
 .tab{display:none}
 .tab.active{display:block}
 
-
-/* Thresholds table tweaks */
-#tab-thresholds table { width:100%; border-collapse: collapse; }
-#tab-thresholds th, #tab-thresholds td { padding: 10px 12px; border-bottom: 1px solid #1f2a44; }
-#tab-thresholds thead th { font-weight: 700; letter-spacing: 0.02em; text-transform: none; }
-#tab-thresholds th.sortable { cursor: pointer; position: relative; user-select: none; }
-#tab-thresholds th.sortable::after { content: " ↕"; opacity: 0.6; font-size: 0.9em; }
-#tab-thresholds th.sortable.asc::after { content: " ↑"; }
-#tab-thresholds th.sortable.desc::after { content: " ↓"; }
-#tab-thresholds td.num, #tab-thresholds th.num { width: 56px; text-align: right; color: #9fb3d1; }
-
 </style>
 </head>
 <body>
@@ -238,102 +227,10 @@ function monthsIndexToDate(x, baselineISO) {
 }
 
 // ---- Minimal-Renderer für Thresholds ----
-
 function renderThresholdsMinimal(csvText){
   const rows = parseCSV(csvText);
   const mount = document.getElementById('thresholdsMount');
   if (!rows.length) { mount.textContent = 'params.csv enthält keine Datenzeilen.'; return; }
-
-  const targets = [0.2, 0.5, 0.8];
-  const hasDate = !!(rows[0] && rows[0].baseline_date);
-
-  // Build derived data
-  let data = rows.map(r => {
-    const v1 = Number(r.v1), v2 = Number(r.v2), t0 = Number(r.t0);
-    const base = r.baseline_date || '';
-    const x20 = x_for_threshold(targets[0], v1, v2, t0);
-    const x50 = x_for_threshold(targets[1], v1, v2, t0);
-    const x80 = x_for_threshold(targets[2], v1, v2, t0);
-    const f = (x) => base ? monthsIndexToDate(x, base) : (isFinite(x) ? x.toFixed(2) : '');
-    return {
-      country: r.country || '',
-      variant: r.variant || '',
-      v1: r.v1, v2: r.v2, t0: r.t0, baseline_date: base,
-      v20: f(x20), v50: f(x50), v80: f(x80),
-      model_date: r.model_date || '',
-      source: r.source || ''
-    };
-  });
-
-  // Helper: sort by key (dates smart)
-  function isoOrVal(s) {
-    const t = Date.parse(s);
-    if (!isNaN(t)) return t;
-    const n = parseFloat(s);
-    return isFinite(n) ? n : s.toString().toLowerCase();
-  }
-  let sortKey = null;
-  let sortAsc = true;
-  function doSort() {
-    if (!sortKey) return;
-    data.sort((a,b) => {
-      const va = isoOrVal(a[sortKey]);
-      const vb = isoOrVal(b[sortKey]);
-      if (va < vb) return sortAsc ? -1 : 1;
-      if (va > vb) return sortAsc ? 1 : -1;
-      return 0;
-    });
-  }
-
-  function renderTable() {
-    doSort();
-    const header = `
-      <thead>
-        <tr>
-          <th class="num">#</th>
-          <th class="sortable" data-key="country">Land</th>
-          <th class="sortable" data-key="variant">Variante</th>
-          <th class="sortable" data-key="v20">20%</th>
-          <th class="sortable" data-key="v50">50%</th>
-          <th class="sortable" data-key="v80">80%</th>
-          <th class="sortable" data-key="model_date">Modelldatum</th>
-          <th>Quelle</th>
-        </tr>
-      </thead>`;
-
-    const body = `<tbody>
-      ${data.map((r,i) => `
-        <tr>
-          <td class="num">${i+1}</td>
-          <td>${r.country}</td>
-          <td>${r.variant}</td>
-          <td>${r.v20}</td>
-          <td>${r.v50}</td>
-          <td>${r.v80}</td>
-          <td>${r.model_date}</td>
-          <td>${r.source}</td>
-        </tr>
-      `).join('')}
-    </tbody>`;
-
-    mount.innerHTML = `<table class="table">${header}${body}</table>`;
-
-    // Attach sort handlers
-    const ths = mount.querySelectorAll("th.sortable");
-    ths.forEach(th => {
-      th.classList.remove('asc','desc');
-      if (th.getAttribute('data-key') === sortKey) th.classList.add(sortAsc ? 'asc' : 'desc');
-      th.onclick = () => {
-        const key = th.getAttribute('data-key');
-        if (sortKey === key) sortAsc = !sortAsc;
-        else { sortKey = key; sortAsc = true; }
-        renderTable();
-      };
-    });
-  }
-
-  renderTable();
-}
 
   const ps = [0.2, 0.5, 0.8];
   const hasDate = !!(rows[0] && rows[0].baseline_date);
