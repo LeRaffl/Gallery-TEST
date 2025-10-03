@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <title>@LeRaffl – BEV Trajektorien</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 16px; }
+    nav { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    nav a { padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; text-decoration: none; color: #111; }
+    nav a.active { background: #111; color: #fff; }
+    .tab { display: none; }
+    .tab.active { display: block; }
+    .controls { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+    input[type="search"], select { padding: 6px 8px; border: 1px solid #ccc; border-radius: 6px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 8px; border-bottom: 1px solid #eee; white-space: nowrap; text-align: left; }
+    th.sortable { cursor: pointer; }
+    th.sortable::after { content: " ⇅"; font-size: 0.8em; color: #666; }
+    .muted { color: #666; font-size: 12px; }
+    .right { text-align: right; }
+    .pill { font-size: 12px; padding: 2px 6px; border-radius: 999px; background: #f2f2f2; }
+    .sep { margin: 16px 0; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="#gallery" id="tablink-gallery">Galerie</a>
+    <a href="#thresholds" id="tablink-thresholds">Thresholds</a>
+    <a href="#durations" id="tablink-durations">Durations</a>
+  </nav>
+
+  <section id="gallery" class="tab">
+    <p class="pill">@LeRaffl</p>
+    <p>Hier liegen die PNGs. Nicht klicken, einfach bewundern.</p>
+  </section>
+
+  <section id="thresholds" class="tab">
+    <div class="controls">
+      <input id="filterA" type="search" placeholder="Filter: Land, Variante, Quelle…" />
+      <label><input type="checkbox" id="toggleVariants" /> Varianten anzeigen</label>
+      <span class="pill">p-Presets:</span>
+      <button type="button" class="preset" data-ps="[0.2,0.5,0.8]">20/50/80</button>
+      <button type="button" class="preset" data-ps="[0.1,0.3,0.7,0.9]">10/30/70/90</button>
+      <span class="muted">Oder Slider unten nutzen</span>
+    </div>
+    <table id="tblThresholds">
+      <thead>
+        <tr id="thHeader">
+          <th class="sortable" data-key="country">Land</th>
+          <th class="sortable" data-key="variant">Variante</th>
+          <th class="sortable" data-key="date_p0_2">p=0.20</th>
+          <th class="sortable" data-key="date_p0_5">p=0.50</th>
+          <th class="sortable" data-key="date_p0_8">p=0.80</th>
+          <th data-key="model_date">Modelldatum</th>
+          <th data-key="source">Quelle</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="sep"></div>
+    <div class="controls">
+      <label for="pCustom">p = <span id="pLabel">0.60</span></label>
+      <input id="pCustom" type="range" min="0.05" max="0.95" step="0.01" value="0.60" />
+    </div>
+    <table id="tblCustomP">
+      <thead><tr><th>Land</th><th>Variante</th><th>Datum p erreicht</th><th>Quelle</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section id="durations" class="tab">
+    <div class="controls">
+      <input id="filterB" type="search" placeholder="Filter: Land, Variante, Quelle…" />
+      <label><input type="checkbox" id="toggleVariantsB" /> Varianten anzeigen</label>
+      <label>p_low: <input id="pLow" type="number" step="0.01" min="0.01" max="0.99" value="0.20" style="width:80px" /></label>
+      <label>p_high: <input id="pHigh" type="number" step="0.01" min="0.01" max="0.99" value="0.80" style="width:80px" /></label>
+      <span class="pill">Sortiere nach Dauer für „Speed“</span>
+    </div>
+    <table id="tblDurations">
+      <thead>
+        <tr>
+          <th class="sortable" data-key="country">Land</th>
+          <th class="sortable" data-key="variant">Variante</th>
+          <th class="sortable right" data-key="duration_months">Dauer (Monate)</th>
+          <th class="sortable" data-key="date_low">p_low erreicht</th>
+          <th class="sortable" data-key="date_high">p_high erreicht</th>
+          <th data-key="model_date">Modelldatum</th>
+          <th data-key="source">Quelle</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <script>
+    // ===== Math helpers =====
+    function weibull_t_for_p(p, shape, scale) {
+      if (p <= 0 || p >= 1) return NaN;
+      return scale * Math.pow(-Math.log(1 - p), 1 / shape);
+    }
+    function monthsToDate(tMonths, t0ISO) {
+      if (!isFinite(tMonths)) return "";
+      const t0 = new Date(t0ISO + "T00:00:00Z");
+      if (isNaN(t0.getTime())) return "";
+      const whole = Math.floor(tMonths);
+      const frac = tMonths - whole;
+      const d = new Date(Date.UTC(t0.getUTCFullYear(), t0.getUTCMonth() + whole, 1));
+      d.setUTCDate(15);
+      d.setUTCDate(d.getUTCDate() + Math.round(frac * 30));
+      return d.toISOString().slice(0, 10);
+    }
+
+    // ===== CSV parser =====
+    function parseCSV(text) {
+      const lines = text.trim().split(/\\r?\\n/);
+      const header = lines.shift().split(",");
+      return lines.map(line => {
+        const cols = line.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/);
+        const o = {};
+        header.forEach((h,i)=> o[h.trim()] = (cols[i]||"").replace(/^"|"$/g,"").trim());
+        return o;
+      });
+    }
+
+    // ===== Tabs =====
+    function activateTabByHash() {
+      const hash = location.hash || "#gallery";
+      document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+      document.querySelectorAll("nav a").forEach(x => x.classList.remove("active"));
+      const tab = document.querySelector(hash) || document.querySelector("#gallery");
+      tab.classList.add("active");
+      const link = document.querySelector(`nav a[href="${hash}"]`);
+      if (link) link.classList.add("active");
+    }
+    window.addEventListener("hashchange", activateTabByHash);
+    activateTabByHash();
+
+    // ===== Sorting =====
+    function sortByKey(arr, key, asc=true) {
+      return arr.slice().sort((a,b) => {
+        let va = a[key], vb = b[key];
+        if (key.startsWith("date")) { va = Date.parse(va || "2100-12-31"); vb = Date.parse(vb || "2100-12-31"); }
+        else if (key.includes("duration")) { va = parseFloat(va); vb = parseFloat(vb); }
+        else { va = (va || "").toLowerCase(); vb = (vb || "").toLowerCase(); }
+        if (va < vb) return asc ? -1 : 1;
+        if (va > vb) return asc ? 1 : -1;
+        return 0;
+      });
+    }
+
+    // ===== Globals =====
+    let paramsRows = [];
+    let thresholdPs = [0.2, 0.5, 0.8];
+
+    // ===== Load params.csv =====
+    fetch("./params.csv", { cache: "no-store" })
+      .then(r => r.text())
+      .then(t => {
+        paramsRows = parseCSV(t);
+        renderAll();
+      })
+      .catch(err => console.error(err));
+
+    // ===== Filter helpers =====
+    function filterVariant(rows, showVariants, key="variant") {
+      if (showVariants) return rows;
+      return rows.filter(r => !r[key] || r[key] === "" || r[key].toLowerCase() === "all");
+    }
+    function filterQuery(rows, q, keys) {
+      if (!q) return rows;
+      const qq = q.toLowerCase();
+      return rows.filter(r => keys.some(k => (r[k] || "").toLowerCase().includes(qq)));
+    }
+
+    // ===== Thresholds tab =====
+    function deriveThresholds(rows, ps) {
+      return rows.map(r => {
+        const shape = parseFloat(r.shape), scale = parseFloat(r.scale), t0 = r.t0_date;
+        const out = {
+          country: r.country || "", variant: r.variant || "",
+          model_date: r.model_date || "", source: r.source || ""
+        };
+        ps.forEach(p => {
+          const t = weibull_t_for_p(p, shape, scale);
+          const dateKey = "date_p" + String(p).replace(".","_");
+          out[dateKey] = monthsToDate(t, t0);
+        });
+        return out;
+      });
+    }
+    function renderThresholds() {
+      const showVar = document.getElementById("toggleVariants").checked;
+      const q = document.getElementById("filterA").value;
+      let rows = deriveThresholds(paramsRows, thresholdPs);
+      rows = filterVariant(rows, showVar);
+      rows = filterQuery(rows, q, ["country","variant","source"]);
+      // Build header dynamically
+      const th = document.getElementById("thHeader");
+      th.innerHTML = `<th class="sortable" data-key="country">Land</th>
+        <th class="sortable" data-key="variant">Variante</th>` + 
+        thresholdPs.map(p => `<th class="sortable" data-key="date_p${String(p).replace(".","_")}">p=${p.toFixed(2)}</th>`).join("") + 
+        `<th data-key="model_date">Modelldatum</th><th data-key="source">Quelle</th>`;
+
+      const tb = document.querySelector("#tblThresholds tbody");
+      tb.innerHTML = rows.map(r => {
+        const dateTds = thresholdPs.map(p => `<td>${r["date_p"+String(p).replace(".","_")] || ""}</td>`).join("");
+        return `<tr>
+          <td>${r.country}</td>
+          <td>${r.variant}</td>
+          ${dateTds}
+          <td>${r.model_date}</td>
+          <td>${r.source}</td>
+        </tr>`;
+      }).join("");
+
+      // attach sort handlers
+      document.querySelectorAll("#tblThresholds th.sortable").forEach(th => {
+        let asc = true;
+        th.onclick = () => {
+          const key = th.getAttribute("data-key");
+          const sorted = sortByKey(rows, key, asc);
+          asc = !asc;
+          const tb2 = document.querySelector("#tblThresholds tbody");
+          tb2.innerHTML = sorted.map(r => {
+            const dateTds2 = thresholdPs.map(p => `<td>${r["date_p"+String(p).replace(".","_")] || ""}</td>`).join("");
+            return `<tr><td>${r.country}</td><td>${r.variant}</td>${dateTds2}<td>${r.model_date}</td><td>${r.source}</td></tr>`;
+          }).join("");
+        };
+      });
+
+      // custom p table
+      const p = parseFloat(document.getElementById("pCustom").value);
+      document.getElementById("pLabel").textContent = p.toFixed(2);
+      const rowsCustom = paramsRows.map(r => {
+        const t = weibull_t_for_p(p, parseFloat(r.shape), parseFloat(r.scale));
+        return {
+          country: r.country || "",
+          variant: r.variant || "",
+          date: monthsToDate(t, r.t0_date),
+          source: r.source || ""
+        };
+      });
+      const rowsCustomFiltered = filterQuery(filterVariant(rowsCustom, showVar), q, ["country","variant","source"]);
+      const tbC = document.querySelector("#tblCustomP tbody");
+      tbC.innerHTML = rowsCustomFiltered.map(r => `<tr><td>${r.country}</td><td>${r.variant}</td><td>${r.date}</td><td>${r.source}</td></tr>`).join("");
+    }
+
+    // ===== Durations tab =====
+    function deriveDurations(rows, pLow, pHigh) {
+      return rows.map(r => {
+        const shape = parseFloat(r.shape), scale = parseFloat(r.scale), t0 = r.t0_date;
+        const tL = weibull_t_for_p(pLow, shape, scale);
+        const tH = weibull_t_for_p(pHigh, shape, scale);
+        return {
+          country: r.country || "",
+          variant: r.variant || "",
+          duration_months: (tH - tL).toFixed(2),
+          date_low: monthsToDate(tL, t0),
+          date_high: monthsToDate(tH, t0),
+          model_date: r.model_date || "",
+          source: r.source || ""
+        };
+      });
+    }
+    function renderDurations() {
+      const showVar = document.getElementById("toggleVariantsB").checked;
+      const q = document.getElementById("filterB").value;
+      let pLow = parseFloat(document.getElementById("pLow").value);
+      let pHigh = parseFloat(document.getElementById("pHigh").value);
+      if (!(pLow > 0 && pLow < pHigh && pHigh < 1)) { pLow = 0.2; pHigh = 0.8; }
+
+      let rows = deriveDurations(paramsRows, pLow, pHigh);
+      rows = filterVariant(rows, showVar);
+      rows = filterQuery(rows, q, ["country","variant","source"]);
+
+      const tb = document.querySelector("#tblDurations tbody");
+      tb.innerHTML = rows.map(r => `<tr>
+        <td>${r.country}</td><td>${r.variant}</td>
+        <td class="right">${r.duration_months}</td>
+        <td>${r.date_low}</td><td>${r.date_high}</td>
+        <td>${r.model_date}</td><td>${r.source}</td>
+      </tr>`).join("");
+
+      // sorting
+      document.querySelectorAll("#tblDurations th.sortable").forEach(th => {
+        let asc = true;
+        th.onclick = () => {
+          const key = th.getAttribute("data-key");
+          const sorted = sortByKey(rows, key, asc);
+          asc = !asc;
+          const tb2 = document.querySelector("#tblDurations tbody");
+          tb2.innerHTML = sorted.map(r => `<tr>
+            <td>${r.country}</td><td>${r.variant}</td>
+            <td class="right">${r.duration_months}</td>
+            <td>${r.date_low}</td><td>${r.date_high}</td>
+            <td>${r.model_date}</td><td>${r.source}</td>
+          </tr>`).join("");
+        };
+      });
+    }
+
+    // ===== Wire events =====
+    document.getElementById("filterA").addEventListener("input", renderThresholds);
+    document.getElementById("toggleVariants").addEventListener("change", renderThresholds);
+    document.getElementById("pCustom").addEventListener("input", renderThresholds);
+    document.querySelectorAll(".preset").forEach(btn => btn.addEventListener("click", () => {
+      try { thresholdPs = JSON.parse(btn.dataset.ps); } catch(_) { thresholdPs = [0.2,0.5,0.8]; }
+      renderThresholds();
+    }));
+    document.getElementById("filterB").addEventListener("input", renderDurations);
+    document.getElementById("toggleVariantsB").addEventListener("change", renderDurations);
+    document.getElementById("pLow").addEventListener("change", renderDurations);
+    document.getElementById("pHigh").addEventListener("change", renderDurations);
+
+    function renderAll(){ renderThresholds(); renderDurations(); }
+  </script>
+</body>
+</html>
