@@ -1,3 +1,3 @@
 country;variant;v1;v2;t0;last_obs_date;model_date;source;baseline_date
 Germany;All;-0.0008;2.31;10;2025-08-31;2025-10-03;KBA;2010-01-01
-Austria;;2.05;38.1;10;2025-08-31;2025-10-03;Statistik Austria;2010-01-01
+Austria;;-0.0008;38.1;2010;2025-08-31;2025-10-03;Statistik Austria;2010-01-01
