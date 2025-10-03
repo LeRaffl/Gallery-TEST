@@ -152,18 +152,18 @@ dialog#lightbox::backdrop{background:rgba(0,0,0,.6)}
 
 <section id="tab-thresholds" class="tab" hidden>
   <div style="max-width:var(--maxw);margin:14px auto;padding:0 10px">
-    <h2 style="margin:0 0 12px;font-size:16px">Thresholds (Test)</h2>
+    <h2 style="margin:0 0 12px;font-size:16px">Thresholds (coming next)</h2>
     <div id="thresholdsMount" class="empty" style="padding:16px;border:1px dashed #2a3654;border-radius:10px;background:#0f1525">
-      Lädt params.csv und berechnet p=0.20/0.50/0.80 live im Browser.
+      This tab will render tables calculated in the browser from params.csv.
     </div>
   </div>
 </section>
 
 <section id="tab-durations" class="tab" hidden>
   <div style="max-width:var(--maxw);margin:14px auto;padding:0 10px">
-    <h2 style="margin:0 0 12px;font-size:16px">Durations</h2>
+    <h2 style="margin:0 0 12px;font-size:16px">Durations (coming next)</h2>
     <div id="durationsMount" class="empty" style="padding:16px;border:1px dashed #2a3654;border-radius:10px;background:#0f1525">
-      Platzhalter – folgt nach Thresholds.
+      This tab will show p_low→p_high durations like 20→80 in months.
     </div>
   </div>
 </section>
@@ -184,120 +184,6 @@ function activateTabByHash(){
 window.addEventListener('hashchange', activateTabByHash);
 document.addEventListener('DOMContentLoaded', activateTabByHash);
 // ---- /Tabs ----
-
-// ---- CSV Parser (',' oder ';'), BOM-fest ----
-function parseCSV(text) {
-  const raw = (text || '').trim();
-  if (!raw) return [];
-  const first = raw.split(/\r?\n/)[0] || '';
-  const delimiter = (first.match(/;/g)||[]).length > (first.match(/,/g)||[]).length ? ';' : ',';
-  const lines = raw.split(/\r?\n/);
-  const header = (lines.shift() || '').split(delimiter).map(h => h.replace(/^\uFEFF?/,'').trim());
-  return lines.filter(Boolean).map(line => {
-    const cols = line.split(new RegExp(`${delimiter}(?=(?:[^"]*"[^"]*")*[^"]*$)`));
-    const o = {};
-    header.forEach((h,i)=> o[h] = (cols[i]||'').replace(/^"|"$/g,'').trim());
-    return o;
-  });
-}
-
-// ---- Inversion deiner Funktion: y = 1 - exp( v1 * (x - (t0 - 1))^v2 )
-// x(y) = (t0 - 1) + [ ln(1 - y) / v1 ]^(1/v2)
-function x_for_threshold(y, v1, v2, t0) {
-  if (!(y > 0 && y < 1)) return NaN;
-  const v1n = Number(v1), v2n = Number(v2), t0n = Number(t0);
-  if (!isFinite(v1n) || !isFinite(v2n) || !isFinite(t0n) || v2n === 0) return NaN;
-  const num = Math.log(1 - y) / v1n; // erwartet v1 < 0
-  if (!(num > 0)) return NaN; // sonst keine reelle Wurzel
-  return (t0n - 1) + Math.pow(num, 1 / v2n);
-}
-
-// Optional: x (1-basiert, Monate) -> Datum, wenn baseline_date (x=1) existiert
-function monthsIndexToDate(x, baselineISO) {
-  if (!baselineISO) return '';
-  const base = new Date(baselineISO + 'T00:00:00Z');
-  if (isNaN(base.getTime()) || !isFinite(x)) return '';
-  const shift = x - 1;
-  const whole = Math.floor(shift);
-  const frac  = shift - whole;
-  const d = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + whole, 1));
-  d.setUTCDate(15);
-  d.setUTCDate(d.getUTCDate() + Math.round(frac * 30));
-  return d.toISOString().slice(0,10);
-}
-
-// ---- Minimal-Renderer für Thresholds ----
-function renderThresholdsMinimal(csvText){
-  const rows = parseCSV(csvText);
-  const mount = document.getElementById('thresholdsMount');
-  if (!rows.length) { mount.textContent = 'params.csv enthält keine Datenzeilen.'; return; }
-
-  const ps = [0.2, 0.5, 0.8];
-  const hasDate = !!(rows[0] && rows[0].baseline_date);
-  const th20 = hasDate ? 'p=0.20 (Datum)' : 'p=0.20 (x)';
-  const th50 = hasDate ? 'p=0.50 (Datum)' : 'p=0.50 (x)';
-  const th80 = hasDate ? 'p=0.80 (Datum)' : 'p=0.80 (x)';
-
-  const data = rows.map(r => {
-    const v1 = Number(r.v1), v2 = Number(r.v2), t0 = Number(r.t0);
-    const base = r.baseline_date || '';
-    const x20 = x_for_threshold(ps[0], v1, v2, t0);
-    const x50 = x_for_threshold(ps[1], v1, v2, t0);
-    const x80 = x_for_threshold(ps[2], v1, v2, t0);
-    return {
-      country: r.country || '',
-      variant: r.variant || '',
-      p20: base ? monthsIndexToDate(x20, base) : (isFinite(x20) ? x20.toFixed(2) : ''),
-      p50: base ? monthsIndexToDate(x50, base) : (isFinite(x50) ? x50.toFixed(2) : ''),
-      p80: base ? monthsIndexToDate(x80, base) : (isFinite(x80) ? x80.toFixed(2) : ''),
-      model_date: r.model_date || '',
-      source: r.source || ''
-    };
-  });
-
-  mount.innerHTML = `
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Land</th>
-          <th>Variante</th>
-          <th>${th20}</th>
-          <th>${th50}</th>
-          <th>${th80}</th>
-          <th>Modelldatum</th>
-          <th>Quelle</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${data.map(r => `
-          <tr>
-            <td>${r.country}</td>
-            <td>${r.variant}</td>
-            <td>${r.p20}</td>
-            <td>${r.p50}</td>
-            <td>${r.p80}</td>
-            <td>${r.model_date}</td>
-            <td>${r.source}</td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-  `;
-}
-
-// ---- Boot: params.csv laden ----
-function bootThresholds(){
-  const mount = document.getElementById('thresholdsMount');
-  const tryUrls = ['./params.csv','params.csv'];
-  (function next(i){
-    if (i>=tryUrls.length){ if(mount) mount.textContent='Konnte params.csv nicht laden.'; return; }
-    fetch(tryUrls[i], { cache:'no-store' })
-      .then(r => r.ok ? r.text() : Promise.reject(new Error('HTTP '+r.status)))
-      .then(text => renderThresholdsMinimal(text))
-      .catch(() => next(i+1));
-  })(0);
-}
-document.addEventListener('DOMContentLoaded', bootThresholds);
 
 const cols = document.getElementById('cols');
 const empty = document.getElementById('empty');
