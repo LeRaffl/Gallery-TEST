@@ -7,11 +7,9 @@
   <style>
     :root { --maxw: 1100px; }
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #0b101b; color: #e9eef2; }
-    header { max-width: var(--maxw); margin: 18px auto 8px; padding: 0 10px; display: grid; grid-template-columns: 1fr auto; align-items: start; gap: 12px; }
+    header { max-width: var(--maxw); margin: 18px auto 8px; padding: 0 10px; display: flex; justify-content: space-between; align-items: baseline; }
     header h1 { font-size: 22px; margin: 0; }
-    .links { text-align: right; font-size: 12px; line-height: 1.4; }
-    .links a { color: #9fb3d1; text-decoration: none; }
-    .links a:hover { text-decoration: underline; }
+    .badge { padding: 4px 10px; border-radius: 999px; background: #0e1a34; color: #b4c2d8; border: 1px solid #1f2a44; font-size: 12px; }
 
     .tabs{max-width:var(--maxw);margin:8px auto 0;padding:0 10px;display:flex;gap:10px;flex-wrap:wrap}
     .tablink{padding:8px 12px;border:1px solid #1f2a44;border-radius:10px;background:#101a33;color:#e9eef2;text-decoration:none}
@@ -35,18 +33,20 @@
     .toolbar { display:flex; gap:10px; flex-wrap:wrap; align-items:end; margin-bottom:12px; }
     .field{display:flex;flex-direction:column;gap:6px}
     .field label{font-size:12px;color:#9fb3d1}
-    input[type="number"], select { background:#0e1a34; border:1px solid #1f2a44; color:#e9eef2; padding:8px 10px; border-radius:8px; }
-    button { background:#e9eef2;color:#0b0c10;border:0;padding:10px 12px;border-radius:10px;cursor:pointer }
+    input[type="text"], input[type="number"], select { background:#0e1a34; border:1px solid #1f2a44; color:#e9eef2; padding:8px 10px; border-radius:8px; }
+    details.filterbox { margin-left:auto; }
+    details.filterbox summary { list-style:none; cursor:pointer; background:#0e1a34; border:1px solid #1f2a44; padding:8px 10px; border-radius:8px; }
+    .dropdown { position:absolute; z-index:2; background:#0f1525; border:1px solid #1f2a44; border-radius:10px; padding:8px; display:grid; grid-template-columns:repeat(2,minmax(120px,1fr)); gap:6px 14px; }
+    .rel { position:relative; }
     .help { font-size:13px; color:#b4c2d8; margin: 4px 0 0; }
+    .checkboxes{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    .checkboxes label{display:flex;gap:6px;align-items:center;background:#0e1a34;border:1px solid #1f2a44;padding:6px 10px;border-radius:999px;font-size:12px;color:#b4c2d8}
   </style>
 </head>
 <body>
   <header>
     <h1>BEV Trajectories · Gallery</h1>
-    <div class="links">
-      <a href="https://x.com/leRaffl" target="_blank" rel="noopener">x.com/leRaffl</a><br />
-      <a href="https://bsky.app/profile/leraffl.bsky.social" target="_blank" rel="noopener">bsky.app/profile/leraffl.bsky.social</a>
-    </div>
+    <span class="badge" id="chartsBadge">Thresholds computed live</span>
   </header>
 
   <nav class="tabs">
@@ -57,28 +57,32 @@
 
   <section id="tab-gallery" class="tab active">
     <div class="page">
-      <p class="muted">This page adds an interactive thresholds table. Switch tabs to see it in action.</p>
+      <p class="muted">Your existing gallery lives here. This file upgrades the Thresholds tab as requested.</p>
     </div>
   </section>
 
   <section id="tab-thresholds" class="tab">
     <div class="page">
-      <h2 style="margin:6px 0 12px">Thresholds (years)</h2>
+      <h2 style="margin:6px 0 12px">Thresholds (test, years)</h2>
       <div class="toolbar">
         <div class="field">
           <label for="customPct">Custom threshold (%)</label>
-          <input id="customPct" type="number" min="1" max="99" step="1" value="90" />
+          <input id="customPct" type="number" min="1" max="99" step="1" value="35" />
         </div>
         <div class="field">
           <label>&nbsp;</label>
-          <button id="applyBtn">Recalculate</button>
+          <button id="applyBtn" style="background:#e9eef2;color:#0b0c10;border:0;padding:10px 12px;border-radius:10px;cursor:pointer">Recalculate</button>
         </div>
-        <div class="field" style="min-width:320px">
-          <label for="variantMulti">Variant filter (multi-select)</label>
-          <select id="variantMulti" multiple size="5" aria-label="Variant multi-select"></select>
+        <div class="field" style="min-width:340px">
+          <label>Variant filter (multi-select)</label>
+          <div id="variantFilters" class="checkboxes"></div>
         </div>
+        <details class="filterbox rel">
+          <summary>Variant: choose attributes to display</summary>
+          <div id="variantDropdown" class="dropdown" hidden></div>
+        </details>
       </div>
-      <p class="help">Choose a custom threshold, then sort the table. Use the variant filter to include multiple categories. Default selects only “All”. Tip: hold Ctrl/Cmd to select more than one.</p>
+      <p class="help">Set a custom threshold, then sort columns. Use the variant filter to include multiple categories (default shows only "All"). Toggle which attributes are shown in the Variant column via the dropdown.</p>
     </div>
     <div id="thresholdsMount" class="card">Loading <code>params.csv</code> and computing 20% / 50% / 80% + Custom in the browser.</div>
   </section>
@@ -126,7 +130,7 @@
       return lines.filter(Boolean).map(line => {
         const cols = line.split(new RegExp(`${delimiter}(?=(?:[^"]*"[^"]*")*[^"]*$)`));
         const o = {};
-        header.forEach((h,i)=> o[h] = (cols[i]||'').replace(/^"|"$/g,'').trim());
+        header.forEach((h,i)=> o[h] = (cols[i]||'').replace(/^\"|\"$/g,'').trim());
         return o;
       });
     }
@@ -146,17 +150,9 @@
       return '';
     }
 
-    // Turn year-index into exact ISO date, with absolute-year guard
+    // Turn year-index into exact ISO date
     function yearsIndexToDate(xYears, baseline_date, baseline_year){
-      if(!isFinite(xYears)) return "";
-      if (xYears >= 1800 && xYears < 3000) {
-        const y = Math.floor(xYears);
-        const frac = xYears - y;
-        const start = new Date(Date.UTC(y, 0, 1));
-        const end   = new Date(Date.UTC(y + 1, 0, 1));
-        const t = start.getTime() + frac * (end.getTime() - start.getTime());
-        return new Date(t).toISOString().slice(0,10);
-      }
+      if(!isFinite(xYears))return "";
       let base;
       if(baseline_date && /^\d{4}-\d{2}-\d{2}$/.test(baseline_date)){
         base=new Date(baseline_date+"T00:00:00Z");
@@ -197,7 +193,7 @@
       return t0n;
     }
 
-    // Guess the freshest data month from multiple possible columns
+    // Freshest data month from multiple possible columns
     function getDataPer(r){
       const candidates=[
         r.data_per, r.latest_month, r.last_month, r.month_latest, r.data_month,
@@ -210,17 +206,18 @@
       return '';
     }
 
+    // Variant attribute handling: DISPLAY only
     function extractVariantParts(variant){
       const v=String(variant||'');
       const base = v.replace(/\s*\([^)]*\)\s*$/, '').trim();
-      const paren = (v.match(/\(([^)]*)\)/)||[])[1]||'';
+      const paren = (v.match(/\(([^)]*)\)/)||[])[1]||''; // contents in parentheses
       const attrs = new Set();
       paren.split(/[,;|/]/).map(s=>s.trim()).filter(Boolean).forEach(x=>attrs.add(x));
       return { base, attrs: Array.from(attrs) };
     }
 
     document.addEventListener("DOMContentLoaded",()=>{
-      const urls=["./params.csv","params.csv"];
+      const urls=["./params.csv","params.csv"]; // fallback
       (function next(i){ if(i>=urls.length){ document.getElementById("thresholdsMount").textContent="Could not load params.csv."; return; }
         fetch(urls[i],{cache:"no-store"}).then(r=>r.ok?r.text():Promise.reject()).then(txt=>renderThresholds(txt)).catch(()=>next(i+1));
       })(0);
@@ -230,30 +227,54 @@
       const rows=parseCSV(csvText); const mount=document.getElementById('thresholdsMount');
       if(!rows.length){ mount.textContent="params.csv contains no data rows."; return; }
 
-      // Build variant base list
+      // Build attribute universe and variant base list
+      const attrUniverse = new Set();
       const variantBases = new Set();
-      rows.forEach(r=>{ const parts=extractVariantParts(r.variant||''); if(parts.base) variantBases.add(parts.base); });
+      rows.forEach(r=>{ const parts=extractVariantParts(r.variant||''); parts.attrs.forEach(a=>attrUniverse.add(a)); variantBases.add(parts.base||''); });
 
-      // Populate multi-select and select 'All' by default
-      const sel = document.getElementById('variantMulti');
-      sel.innerHTML = '';
-      const bases = [...variantBases].sort((a,b)=>a.localeCompare(b));
-      bases.forEach(base => {
-        const opt = document.createElement('option');
-        opt.value = base;
-        opt.textContent = base;
-        if (base.toLowerCase() === 'all') opt.selected = true;
-        sel.appendChild(opt);
+      // Populate attribute dropdown (display only)
+      const dd = document.getElementById('variantDropdown');
+      dd.innerHTML = '';
+      const chosenAttrs = new Set(attrUniverse); // show all by default
+      if(attrUniverse.size){ dd.hidden=false; }
+      [...attrUniverse].sort().forEach(attr=>{
+        const id = 'attr_' + attr.replace(/\W+/g,'_');
+        const wrap = document.createElement('label');
+        wrap.style.display='flex'; wrap.style.alignItems='center'; wrap.style.gap='8px';
+        wrap.innerHTML = `<input type="checkbox" id="${id}" checked> <span>${attr}</span>`;
+        dd.appendChild(wrap);
+        wrap.querySelector('input').addEventListener('change', e=>{
+          if(e.target.checked) chosenAttrs.add(attr); else chosenAttrs.delete(attr);
+          renderTable();
+        });
       });
-      sel.addEventListener('change', renderTable);
 
+      // Variant multi-select checkboxes
+      const variantFiltersDiv = document.getElementById('variantFilters');
+      const selectedVariants = new Set();
+      // Default: only "All" selected if present, else nothing
+      const sortedBases = [...variantBases].filter(Boolean).sort((a,b)=> a.localeCompare(b));
+      sortedBases.forEach(base=>{
+        const id = 'vb_' + base.replace(/\W+/g,'_');
+        const lbl = document.createElement('label');
+        lbl.innerHTML = `<input type="checkbox" id="${id}"> <span>${base}</span>`;
+        variantFiltersDiv.appendChild(lbl);
+        const input = lbl.querySelector('input');
+        if(base.toLowerCase()==='all'){ input.checked = true; selectedVariants.add(base); }
+        input.addEventListener('change', e=>{
+          if(e.target.checked) selectedVariants.add(base); else selectedVariants.delete(base);
+          renderTable();
+        });
+      });
+
+      // Controls
       const customPctEl = document.getElementById('customPct');
       document.getElementById('applyBtn').addEventListener('click', ()=> renderTable());
 
       let sortKey = 'val80', sortAsc = true;
 
       function computeData(){
-        const pct = Math.max(1, Math.min(99, Number(customPctEl.value)||90));
+        const pct = Math.max(1, Math.min(99, Number(customPctEl.value)||35));
         const y = pct/100;
         return rows.map(r=>{
           const v1=normNumber(r.v1), v2=normNumber(r.v2), t0=getT0Years(r), baseDate=r.baseline_date||"", baseYear=normNumber(r.baseline_year);
@@ -265,10 +286,13 @@
           };
           const f20=fmt(r20), f50=fmt(r50), f80=fmt(r80), fc=fmt(rc);
           const parts = extractVariantParts(r.variant||'');
+          const shownAttrs = parts.attrs.filter(a=>chosenAttrs.has(a));
+          const variantShown = shownAttrs.length ? `${parts.base} (${shownAttrs.join(', ')})` : parts.base;
           return {
             country: r.country||'',
             variantBase: parts.base||'',
-            variant: r.variant||'',
+            variantRaw: r.variant||'',
+            variant: variantShown,
             val20: f20.text, _v20: f20.val,
             val50: f50.text, _v50: f50.val,
             val80: f80.text, _v80: f80.val,
@@ -278,14 +302,12 @@
         });
       }
 
-      function getSelectedVariants(){
-        return Array.from(sel.selectedOptions || []).map(o => o.value);
-      }
-
       function applyVariantFilter(arr){
-        const selected = new Set(getSelectedVariants());
-        if(selected.size===0) return [];
-        return arr.filter(r => selected.has(r.variantBase||''));
+        if(selectedVariants.size===0){
+          // Show nothing if user unchecks all
+          return [];
+        }
+        return arr.filter(r => selectedVariants.has((r.variantBase||'')));
       }
 
       let data = computeData();
