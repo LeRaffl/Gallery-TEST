@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="de">
 <head>
   <meta charset="utf-8" />
   <title>BEV Trajectories · Gallery</title>
@@ -46,46 +46,50 @@
 <body>
   <header>
     <h1>BEV Trajectories · Gallery</h1>
-    <span class="badge" id="chartsBadge">Thresholds computed live</span>
+    <span class="badge" id="chartsBadge">Thresholds live berechnet</span>
   </header>
 
   <nav class="tabs">
-    <a href="#gallery" class="tablink active">Gallery</a>
+    <a href="#gallery" class="tablink active">Galerie</a>
     <a href="#thresholds" class="tablink">Thresholds</a>
     <a href="#durations" class="tablink">Durations</a>
   </nav>
 
   <section id="tab-gallery" class="tab active">
     <div class="page">
-      <p class="muted">Your existing gallery lives here. This file upgrades the Thresholds tab as requested.</p>
+      <p class="muted">Hier liegt deine bestehende Galerie. Diese Datei erweitert den Threshold‑Tab wie besprochen.</p>
     </div>
   </section>
 
   <section id="tab-thresholds" class="tab">
     <div class="page">
-      <h2 style="margin:6px 0 12px">Thresholds (test, years)</h2>
+      <h2 style="margin:6px 0 12px">Thresholds (Test, Jahre)</h2>
       <div class="toolbar">
         <div class="field">
-          <label for="customPct">Custom threshold (%)</label>
+          <label for="customPct">Custom‑Schwelle in %</label>
           <input id="customPct" type="number" min="1" max="99" step="1" value="35" />
+        </div>
+        <div class="field" style="min-width:220px">
+          <label for="customName">Name für Custom‑Spalte</label>
+          <input id="customName" type="text" value="35%" placeholder="z. B. Break‑even" />
         </div>
         <div class="field">
           <label>&nbsp;</label>
-          <button id="applyBtn" style="background:#e9eef2;color:#0b0c10;border:0;padding:10px 12px;border-radius:10px;cursor:pointer">Recalculate</button>
+          <button id="applyBtn" style="background:#e9eef2;color:#0b0c10;border:0;padding:10px 12px;border-radius:10px;cursor:pointer">Neu berechnen</button>
         </div>
         <details class="filterbox rel">
-          <summary>Variant: choose attributes to display</summary>
+          <summary>Variante anzeigen: Attribute wählen</summary>
           <div id="variantDropdown" class="dropdown" hidden></div>
         </details>
       </div>
-      <div class="hint">Columns “Model date” and “Source” removed. New: “Data per” shows freshest data month (YYYY‑MM). “Custom” column equals the threshold set above.</div>
+      <div class="hint">Spalten „Modelldatum“ und „Quelle“ wurden entfernt. Neu: „Data per“ zeigt den Monat der frischesten Daten (YYYY‑MM).</div>
     </div>
-    <div id="thresholdsMount" class="card">Loading <code>params.csv</code> and computing 20% / 50% / 80% + Custom in the browser.</div>
+    <div id="thresholdsMount" class="card">Lädt <code>params.csv</code> und berechnet 20% / 50% / 80% + Custom live im Browser.</div>
   </section>
 
   <section id="tab-durations" class="tab">
     <div class="page"><h2 style="margin:6px 0 12px">Durations</h2></div>
-    <div id="durationsMount" class="card">Placeholder.</div>
+    <div id="durationsMount" class="card">Platzhalter – folgt.</div>
   </section>
 
   <script>
@@ -121,7 +125,7 @@
       if (!raw) return [];
       const first = raw.split(/\r?\n/)[0] || '';
       const delimiter = (first.match(/;/g)||[]).length > (first.match(/,/g)||[]).length ? ';' : ',';
-      const lines = raw split = raw.split(/\r?\n/);
+      const lines = raw.split(/\r?\n/);
       const header = (lines.shift() || '').split(delimiter).map(h => h.replace(/^\uFEFF?/,'').trim());
       return lines.filter(Boolean).map(line => {
         const cols = line.split(new RegExp(`${delimiter}(?=(?:[^"]*"[^"]*")*[^"]*$)`));
@@ -146,7 +150,7 @@
       return '';
     }
 
-    // Turn year-index into exact ISO date
+    // Exakte Datumsausgabe aus Year-Index
     function yearsIndexToDate(xYears, baseline_date, baseline_year){
       if(!isFinite(xYears))return "";
       let base;
@@ -167,9 +171,9 @@
     function inv_x_years(y,v1,v2,t0){
       const v1n=normNumber(v1), v2n=normNumber(v2), t0n=normNumber(t0);
       if(!(y>0&&y<1))return{x:NaN,why:"y∉(0,1)"};
-      if(!isFinite(v1n)||!isFinite(v2n)||!isFinite(t0n))return{x:NaN,why:"v1/v2/t0 not numeric"};
+      if(!isFinite(v1n)||!isFinite(v2n)||!isFinite(t0n))return{x:NaN,why:"v1/v2/t0 nicht numerisch"};
       if(v2n===0)return{x:NaN,why:"v2=0"};
-      if(v1n>=0)return{x:NaN,why:"v1 must be < 0"};
+      if(v1n>=0)return{x:NaN,why:"v1 muss <0 sein"};
       const num=Math.log(1-y)/v1n; if(!(num>0))return{x:NaN,why:"ln(1-y)/v1 ≤ 0"};
       return{x:(t0n-1)+Math.pow(num,1/v2n),why:null};
     }
@@ -189,7 +193,7 @@
       return t0n;
     }
 
-    // Freshest data month from multiple possible columns
+    // Guess the freshest data month from multiple possible columns
     function getDataPer(r){
       const candidates=[
         r.data_per, r.latest_month, r.last_month, r.month_latest, r.data_month,
@@ -199,10 +203,11 @@
         const m = toYYYYMM(c);
         if(m) return m;
       }
+      // If nothing obvious, leave blank
       return '';
     }
 
-    // Variant attribute handling: which attributes to DISPLAY
+    // Variant attribute handling: pick which attributes to DISPLAY
     function extractVariantParts(variant){
       const v=String(variant||'');
       const base = v.replace(/\s*\([^)]*\)\s*$/, '').trim();
@@ -214,14 +219,14 @@
 
     document.addEventListener("DOMContentLoaded",()=>{
       const urls=["./params.csv","params.csv"]; // fallback
-      (function next(i){ if(i>=urls.length){ document.getElementById("thresholdsMount").textContent="Could not load params.csv."; return; }
+      (function next(i){ if(i>=urls.length){ document.getElementById("thresholdsMount").textContent="Konnte params.csv nicht laden."; return; }
         fetch(urls[i],{cache:"no-store"}).then(r=>r.ok?r.text():Promise.reject()).then(txt=>renderThresholds(txt)).catch(()=>next(i+1));
       })(0);
     });
 
     function renderThresholds(csvText){
       const rows=parseCSV(csvText); const mount=document.getElementById('thresholdsMount');
-      if(!rows.length){ mount.textContent="params.csv contains no data rows."; return; }
+      if(!rows.length){ mount.textContent="params.csv enthält keine Datenzeilen."; return; }
 
       // Build attribute universe from Variant parentheses
       const attrUniverse = new Set();
@@ -244,8 +249,9 @@
         });
       });
 
-      // Controls
+      // Controls for custom column
       const customPctEl = document.getElementById('customPct');
+      const customNameEl = document.getElementById('customName');
       document.getElementById('applyBtn').addEventListener('click', ()=> renderTable());
 
       let sortKey = 'val80', sortAsc = true;
@@ -256,7 +262,7 @@
         return rows.map(r=>{
           const v1=normNumber(r.v1), v2=normNumber(r.v2), t0=getT0Years(r), baseDate=r.baseline_date||"", baseYear=normNumber(r.baseline_year);
           const r20=inv_x_years(0.2,v1,v2,t0), r50=inv_x_years(0.5,v1,v2,t0), r80=inv_x_years(0.8,v1,v2,t0), rc=inv_x_years(y,v1,v2,t0);
-          const fmt=res=>!res||!isFinite(res.x)?{text:"—",val:Infinity,title:res?.why||"no solution"}:{
+          const fmt=res=>!res||!isFinite(res.x)?{text:"—",val:Infinity,title:res?.why||"keine Lösung"}:{
             text: (yearsIndexToDate(res.x,baseDate,baseYear) || res.x.toFixed(2)),
             val: Date.parse(yearsIndexToDate(res.x,baseDate,baseYear)) || parseFloat(res.x),
             title:""
@@ -296,14 +302,19 @@
       }); }
 
       function headerHTML(){
+        const customHdr = (function(){
+          const pct = Math.max(1, Math.min(99, Number(customPctEl.value)||35));
+          const label = (customNameEl.value||'Custom').trim() || 'Custom';
+          return `${label} (${pct}%)`;
+        })();
         return `<thead><tr>
           <th class="num">#</th>
-          <th class="sortable" data-key="country">Country</th>
-          <th class="sortable" data-key="variant">Variant</th>
+          <th class="sortable" data-key="country">Land</th>
+          <th class="sortable" data-key="variant">Variante</th>
           <th class="sortable" data-key="val20">20%</th>
           <th class="sortable" data-key="val50">50%</th>
           <th class="sortable" data-key="val80">80%</th>
-          <th class="sortable" data-key="custom">Custom</th>
+          <th class="sortable" data-key="custom">${customHdr}</th>
           <th class="sortable" data-key="data_per">Data per</th>
         </tr></thead>`;
       }
@@ -313,7 +324,7 @@
           <td class="num">${i+1}</td>
           <td>${r.country}</td>
           <td>${r.variant}</td>
-          <td>${r.val20}</td>
+          <td title="${''}">${r.val20}</td>
           <td>${r.val50}</td>
           <td>${r.val80}</td>
           <td>${r.custom}</td>
