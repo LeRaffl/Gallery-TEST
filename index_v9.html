@@ -75,10 +75,10 @@
         </div>
         <div class="field" style="min-width:320px">
           <label for="variantMulti">Variant filter (multi-select)</label>
-          <select id="variantMulti" multiple size="6" aria-label="Variant multi-select"></select>
+          <select id="variantMulti" multiple size="5" aria-label="Variant multi-select"></select>
         </div>
       </div>
-      <p class="help">Choose a custom threshold, then sort the table. Use the variant filter to include multiple categories. Default selects “Whole” (aka the total market).</p>
+      <p class="help">Choose a custom threshold, then sort the table. Use the variant filter to include multiple categories. Default selects only “All”. Tip: hold Ctrl/Cmd to select more than one.</p>
     </div>
     <div id="thresholdsMount" class="card">Loading <code>params.csv</code> and computing 20% / 50% / 80% + Custom in the browser.</div>
   </section>
@@ -144,21 +144,6 @@
       if(/^\d{4}-\d{2}$/.test(s)) return s;
       if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s.slice(0,7);
       return '';
-    }
-
-    // Normalize and label mapping for variant bases
-    function normalizeBase(s){
-      const k = String(s||'').trim().toLowerCase();
-      if(!k) return '';
-      // Map common synonyms to 'whole' (total market)
-      if(['all','total','overall','whole','total market','market total','entire','entire market','total vehicles','fleet total'].includes(k)) return 'whole';
-      return k;
-    }
-    function displayLabelFromBase(base){
-      const n = normalizeBase(base);
-      if(n==='whole') return 'Whole';
-      // Title-case fallback for nicer display
-      return String(base||'').replace(/\s+/g,' ').trim().replace(/(^|\s)\S/g, c => c.toUpperCase());
     }
 
     // Turn year-index into exact ISO date, with absolute-year guard
@@ -246,31 +231,18 @@
       if(!rows.length){ mount.textContent="params.csv contains no data rows."; return; }
 
       // Build variant base list
-      const rawBases = new Set();
-      rows.forEach(r=>{ const parts=extractVariantParts(r.variant||''); if(parts.base) rawBases.add(parts.base); });
+      const variantBases = new Set();
+      rows.forEach(r=>{ const parts=extractVariantParts(r.variant||''); if(parts.base) variantBases.add(parts.base); });
 
-      // Collapse synonyms and build options
+      // Populate multi-select and select 'All' by default
       const sel = document.getElementById('variantMulti');
       sel.innerHTML = '';
-      const bases = [...rawBases].sort((a,b)=>a.localeCompare(b));
-      const seenCanonical = new Set();
-      const optionMap = []; // {canonical, label}
+      const bases = [...variantBases].sort((a,b)=>a.localeCompare(b));
       bases.forEach(base => {
-        const canonical = normalizeBase(base);
-        const label = displayLabelFromBase(base);
-        if(!canonical) return;
-        if(seenCanonical.has(canonical)) return; // don't duplicate synonyms
-        seenCanonical.add(canonical);
-        optionMap.push({canonical, label});
-      });
-      // Ensure 'whole' appears first if present
-      optionMap.sort((a,b)=> (a.canonical==='whole'? -1 : b.canonical==='whole'? 1 : a.label.localeCompare(b.label)) );
-
-      optionMap.forEach(({canonical,label}) => {
         const opt = document.createElement('option');
-        opt.value = canonical;
-        opt.textContent = label;
-        if (canonical === 'whole') opt.selected = true;
+        opt.value = base;
+        opt.textContent = base;
+        if (base.toLowerCase() === 'all') opt.selected = true;
         sel.appendChild(opt);
       });
       sel.addEventListener('change', renderTable);
@@ -295,8 +267,7 @@
           const parts = extractVariantParts(r.variant||'');
           return {
             country: r.country||'',
-            variantBaseCanonical: normalizeBase(parts.base||''),
-            variantDisplay: parts.base || '',
+            variantBase: parts.base||'',
             variant: r.variant||'',
             val20: f20.text, _v20: f20.val,
             val50: f50.text, _v50: f50.val,
@@ -307,14 +278,14 @@
         });
       }
 
-      function getSelectedCanonicals(){
+      function getSelectedVariants(){
         return Array.from(sel.selectedOptions || []).map(o => o.value);
       }
 
       function applyVariantFilter(arr){
-        const selected = new Set(getSelectedCanonicals());
+        const selected = new Set(getSelectedVariants());
         if(selected.size===0) return [];
-        return arr.filter(r => selected.has(r.variantBaseCanonical||''));
+        return arr.filter(r => selected.has(r.variantBase||''));
       }
 
       let data = computeData();
