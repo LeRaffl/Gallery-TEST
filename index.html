@@ -10,15 +10,12 @@
     header { max-width: var(--maxw); margin: 18px auto 8px; padding: 0 10px; display: flex; justify-content: space-between; align-items: baseline; }
     header h1 { font-size: 22px; margin: 0; }
     .badge { padding: 4px 10px; border-radius: 999px; background: #0e1a34; color: #b4c2d8; border: 1px solid #1f2a44; font-size: 12px; }
-
     .tabs{max-width:var(--maxw);margin:8px auto 0;padding:0 10px;display:flex;gap:10px;flex-wrap:wrap}
     .tablink{padding:8px 12px;border:1px solid #1f2a44;border-radius:10px;background:#101a33;color:#e9eef2;text-decoration:none}
     .tablink.active{background:#e9eef2;color:#0b0c10}
     .tab{display:none}
     .tab.active{display:block}
-
     .card { max-width: var(--maxw); margin: 12px auto; padding: 16px; border: 1px dashed #2a3654; border-radius: 12px; background:#0f1525 }
-
     #tab-thresholds table { width:100%; border-collapse: collapse; }
     #tab-thresholds th, #tab-thresholds td { padding: 10px 12px; border-bottom: 1px solid #1f2a44; }
     #tab-thresholds thead th { font-weight: 750; letter-spacing: 0.02em; }
@@ -27,7 +24,6 @@
     #tab-thresholds th.sortable.asc::after { content: " ↑"; }
     #tab-thresholds th.sortable.desc::after { content: " ↓"; }
     #tab-thresholds td.num, #tab-thresholds th.num { width: 56px; text-align: right; color: #9fb3d1; }
-
     .page { max-width: var(--maxw); margin: 12px auto; padding: 0 10px; }
     .muted { color:#9fb3d1; font-size: 13px; }
   </style>
@@ -60,13 +56,12 @@
   </section>
 
   <section id="tab-durations" class="tab">
-    <div class="page">
-      <h2 style="margin:6px 0 12px">Durations</h2>
-    </div>
+    <div class="page"><h2 style="margin:6px 0 12px">Durations</h2></div>
     <div id="durationsMount" class="card">Platzhalter – folgt.</div>
   </section>
 
   <script>
+    // Tab switching
     function activateTabByHash(){
       const hash = location.hash || '#gallery';
       const id = hash.replace('#','');
@@ -92,7 +87,7 @@
       activateTabByHash();
     });
 
-    // CSV parser
+    // CSV Parser
     function parseCSV(text) {
       const raw = (text || '').trim();
       if (!raw) return [];
@@ -109,191 +104,93 @@
     }
 
     // Helpers
-    function normNumber(x) {
-      if (x == null) return NaN;
-      const s = String(x).trim().replace(/\u00A0/g,' ').replace(',', '.');
-      const n = Number(s);
-      return isFinite(n) ? n : NaN;
-    }
+    function normNumber(x){const s=String(x||"").trim().replace(',','.');const n=Number(s);return isFinite(n)?n:NaN;}
     function isoDateToYearFrac(iso){
-      // Return decimal years relative to Jan-01 of that year
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(iso||""))) return NaN;
-      const d = new Date(String(iso) + "T00:00:00Z");
-      if (isNaN(d)) return NaN;
-      const y0 = Date.UTC(d.getUTCFullYear(), 0, 1);
-      const y1 = Date.UTC(d.getUTCFullYear()+1, 0, 1);
-      const frac = (d.getTime() - y0) / (y1 - y0);
-      return d.getUTCFullYear() + frac;
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(String(iso||"")))return NaN;
+      const d=new Date(iso+"T00:00:00Z");if(isNaN(d))return NaN;
+      const y0=Date.UTC(d.getUTCFullYear(),0,1);const y1=Date.UTC(d.getUTCFullYear()+1,0,1);
+      return d.getUTCFullYear()+((d.getTime()-y0)/(y1-y0));
     }
-    function yearsIndexToDate(xYears, baseline_date, baseline_year) {
-      if (!isFinite(xYears)) return "";
-      let baseYearNum = NaN, baseMonth = 0;
-      if (baseline_date && /^\d{4}-\d{2}-\d{2}$/.test(String(baseline_date))) {
-        const bd = new Date(String(baseline_date) + 'T00:00:00Z');
-        if (!isNaN(bd)) { baseYearNum = bd.getUTCFullYear(); baseMonth = bd.getUTCMonth(); }
-      } else if (isFinite(normNumber(baseline_year))) {
-        baseYearNum = Math.round(normNumber(baseline_year));
-      } else {
-        return "";
-      }
-      const years = Math.floor(xYears);
-      const frac = xYears - years;
-      const months = Math.round(frac * 12);
-      const d = new Date(Date.UTC(baseYearNum + years, baseMonth + months, 1));
-      d.setUTCDate(15);
+
+    // **EXAKTE Datumsausgabe**
+    function yearsIndexToDate(xYears, baseline_date, baseline_year){
+      if(!isFinite(xYears))return "";
+      let base;
+      if(baseline_date && /^\d{4}-\d{2}-\d{2}$/.test(baseline_date)){
+        base=new Date(baseline_date+"T00:00:00Z");
+      }else if(isFinite(normNumber(baseline_year))){
+        base=new Date(Math.round(normNumber(baseline_year))+"-01-01T00:00:00Z");
+      }else{return "";}
+      if(isNaN(base))return "";
+      const years=Math.floor(xYears);
+      const frac=xYears-years;
+      const start=new Date(Date.UTC(base.getUTCFullYear()+years, base.getUTCMonth(), base.getUTCDate()));
+      const end=new Date(Date.UTC(start.getUTCFullYear()+1,start.getUTCMonth(),start.getUTCDate()));
+      const t=start.getTime()+frac*(end.getTime()-start.getTime());
+      const d=new Date(t);
       return d.toISOString().slice(0,10);
     }
 
-    // Inversion in Jahren
-    function inv_x_years(y, v1, v2, t0_years) {
-      if (!(y > 0 && y < 1)) return {x:NaN, why:"y∉(0,1)"};
-      const v1n = normNumber(v1), v2n = normNumber(v2), t0n = normNumber(t0_years);
-      if (!isFinite(v1n) || !isFinite(v2n) || !isFinite(t0n)) return {x:NaN, why:"v1/v2/t0 nicht numerisch"};
-      if (v2n === 0) return {x:NaN, why:"v2=0"};
-      if (v1n >= 0) return {x:NaN, why:"v1 muss < 0 sein"};
-      const num = Math.log(1 - y) / v1n;
-      if (!(num > 0)) return {x:NaN, why:"ln(1-y)/v1 ≤ 0"};
-      const x = (t0n - 1) + Math.pow(num, 1 / v2n);
-      return {x, why:null};
+    function inv_x_years(y,v1,v2,t0){
+      const v1n=normNumber(v1),v2n=normNumber(v2),t0n=normNumber(t0);
+      if(!(y>0&&y<1))return{x:NaN,why:"y∉(0,1)"};
+      if(!isFinite(v1n)||!isFinite(v2n)||!isFinite(t0n))return{x:NaN,why:"v1/v2/t0 nicht numerisch"};
+      if(v2n===0)return{x:NaN,why:"v2=0"};
+      if(v1n>=0)return{x:NaN,why:"v1 muss <0 sein"};
+      const num=Math.log(1-y)/v1n;if(!(num>0))return{x:NaN,why:"ln(1-y)/v1 ≤ 0"};
+      return{x:(t0n-1)+Math.pow(num,1/v2n),why:null};
     }
 
-    // t0 normalisieren: akzeptiere
-    // - numerischen Jahresindex (dezimal)
-    // - absolute Jahreszahl (>=1800) → Index relativ zur Baseline (1-basiert)
-    // - ISO-Datum → Jahrfraktion → Index relativ zur Baseline (1-basiert)
     function getT0Years(r){
-      const baseDate = r.baseline_date || "";
-      const baseYear = normNumber(r.baseline_year);
-      const t0raw = (r.t0 || "").trim();
-      let t0n = normNumber(t0raw);
-
-      // absolute Jahreszahl?
-      if (isFinite(t0n) && t0n >= 1800 && (isFinite(baseYear) || /^\d{4}-\d{2}-\d{2}$/.test(baseDate))) {
-        const by = isFinite(baseYear) ? Math.round(baseYear)
-                  : (new Date(baseDate + "T00:00:00Z")).getUTCFullYear();
-        t0n = (t0n - by) + 1; // 1-basiert für unsere (t0 - 1) Formel
-        return t0n;
+      const baseDate=r.baseline_date||"",baseYear=normNumber(r.baseline_year),t0raw=(r.t0||"").trim();
+      let t0n=normNumber(t0raw);
+      if(isFinite(t0n)&&t0n>=1800&&(isFinite(baseYear)||/^\d{4}-\d{2}-\d{2}$/.test(baseDate))){
+        const by=isFinite(baseYear)?Math.round(baseYear):(new Date(baseDate+"T00:00:00Z")).getUTCFullYear();
+        return (t0n-by)+1;
       }
-
-      // ISO-Datum?
-      if (/^\d{4}-\d{2}-\d{2}$/.test(t0raw)) {
-        const t0yf = isoDateToYearFrac(t0raw);
-        let by = NaN;
-        if (isFinite(baseYear)) by = baseYear;
-        else if (/^\d{4}-\d{2}-\d{2}$/.test(baseDate)) by = isoDateToYearFrac(baseDate);
-        if (isFinite(by) && isFinite(t0yf)) {
-          t0n = (t0yf - by) + 1; // wieder 1-basiert
-          return t0n;
-        }
+      if(/^\d{4}-\d{2}-\d{2}$/.test(t0raw)){
+        const t0yf=isoDateToYearFrac(t0raw);
+        const by=isFinite(baseYear)?baseYear:isoDateToYearFrac(baseDate);
+        if(isFinite(by)&&isFinite(t0yf))return (t0yf-by)+1;
       }
-
-      // ansonsten: t0 ist bereits Jahresindex
       return t0n;
     }
 
-    // Thresholds rendern
     function renderThresholdsYears(csvText){
-      const rows = parseCSV(csvText);
-      const mount = document.getElementById('thresholdsMount');
-      if (!rows.length) { mount.textContent = 'params.csv enthält keine Datenzeilen.'; return; }
-
-      let data = rows.map(r => {
-        const v1 = normNumber(r.v1);
-        const v2 = normNumber(r.v2);
-        const t0y = getT0Years(r);
-        const baseDate = r.baseline_date || "";
-        const baseYear = normNumber(r.baseline_year);
-
-        const r20 = inv_x_years(0.2, v1, v2, t0y);
-        const r50 = inv_x_years(0.5, v1, v2, t0y);
-        const r80 = inv_x_years(0.8, v1, v2, t0y);
-
-        const fmt = (res) => {
-          if (!res || !isFinite(res.x)) return {text:"—", title: res?.why || "keine Lösung"};
-          const d = yearsIndexToDate(res.x, baseDate, baseYear);
-          return {text: d || res.x.toFixed(2), title: d ? "" : "kein baseline, zeige Jahre"};
-        };
-        const f20 = fmt(r20), f50 = fmt(r50), f80 = fmt(r80);
-
-        return {
-          country: r.country || "", variant: r.variant || "",
-          val20: f20.text, tip20: f20.title,
-          val50: f50.text, tip50: f50.title,
-          val80: f80.text, tip80: f80.title,
-          model_date: r.model_date || "", source: r.source || ""
-        };
+      const rows=parseCSV(csvText);const m=document.getElementById("thresholdsMount");
+      if(!rows.length){m.textContent="params.csv enthält keine Datenzeilen.";return;}
+      let data=rows.map(r=>{
+        const v1=normNumber(r.v1),v2=normNumber(r.v2),t0=getT0Years(r),baseDate=r.baseline_date||"",baseYear=normNumber(r.baseline_year);
+        const r20=inv_x_years(0.2,v1,v2,t0),r50=inv_x_years(0.5,v1,v2,t0),r80=inv_x_years(0.8,v1,v2,t0);
+        const fmt=res=>!res||!isFinite(res.x)?{text:"—",title:res?.why||"keine Lösung"}:
+          {text:yearsIndexToDate(res.x,baseDate,baseYear)||res.x.toFixed(2),title:""};
+        const f20=fmt(r20),f50=fmt(r50),f80=fmt(r80);
+        return{country:r.country||"",variant:r.variant||"",val20:f20.text,val50:f50.text,val80:f80.text,model_date:r.model_date||"",source:r.source||""};
       });
-
-      function isoOrVal(s) {
-        const t = Date.parse(s);
-        if (!isNaN(t)) return t;
-        const n = parseFloat(String(s).replace(',','.'));
-        return isFinite(n) ? n : (s||'').toString().toLowerCase();
-      }
-      let sortKey = "val80", sortAsc = true;
-      function doSort() {
-        if (!sortKey) return;
-        data.sort((a,b) => {
-          const va = isoOrVal(a[sortKey]); const vb = isoOrVal(b[sortKey]);
-          if (va < vb) return sortAsc ? -1 : 1;
-          if (va > vb) return sortAsc ? 1 : -1;
-          return 0;
+      let sortKey="val80",sortAsc=true;
+      function isoOrVal(s){const t=Date.parse(s);if(!isNaN(t))return t;const n=parseFloat(String(s).replace(",","."));return isFinite(n)?n:s;}
+      function doSort(){if(!sortKey)return;data.sort((a,b)=>{const va=isoOrVal(a[sortKey]),vb=isoOrVal(b[sortKey]);return va<vb?(sortAsc?-1:1):va>vb?(sortAsc?1:-1):0;});}
+      function render(){doSort();const head=`<thead><tr>
+        <th class="num">#</th><th class="sortable" data-key="country">Land</th><th class="sortable" data-key="variant">Variante</th>
+        <th class="sortable" data-key="val20">20%</th><th class="sortable" data-key="val50">50%</th><th class="sortable" data-key="val80">80%</th>
+        <th class="sortable" data-key="model_date">Modelldatum</th><th>Quelle</th></tr></thead>`;
+        const body=`<tbody>${data.map((r,i)=>`<tr><td class="num">${i+1}</td><td>${r.country}</td><td>${r.variant}</td>
+        <td>${r.val20}</td><td>${r.val50}</td><td>${r.val80}</td><td>${r.model_date}</td><td>${r.source}</td></tr>`).join("")}</tbody>`;
+        m.innerHTML=`<table>${head}${body}</table>`;
+        m.querySelectorAll("th.sortable").forEach(th=>{
+          th.classList.remove("asc","desc");
+          if(th.dataset.key===sortKey)th.classList.add(sortAsc?"asc":"desc");
+          th.onclick=()=>{const key=th.dataset.key;if(sortKey===key)sortAsc=!sortAsc;else{sortKey=key;sortAsc=true;}render();};
         });
-      }
-      function renderTable() {
-        doSort();
-        const header = `
-          <thead>
-            <tr>
-              <th class="num">#</th>
-              <th class="sortable" data-key="country">Land</th>
-              <th class="sortable" data-key="variant">Variante</th>
-              <th class="sortable" data-key="val20">20%</th>
-              <th class="sortable" data-key="val50">50%</th>
-              <th class="sortable" data-key="val80">80%</th>
-              <th class="sortable" data-key="model_date">Modelldatum</th>
-              <th>Quelle</th>
-            </tr>
-          </thead>`;
-        const body = `<tbody>
-          ${data.map((r,i)=>`
-            <tr>
-              <td class="num">${i+1}</td>
-              <td>${r.country}</td>
-              <td>${r.variant}</td>
-              <td title="${r.tip20}">${r.val20}</td>
-              <td title="${r.tip50}">${r.val50}</td>
-              <td title="${r.tip80}">${r.val80}</td>
-              <td>${r.model_date}</td>
-              <td>${r.source}</td>
-            </tr>`).join('')}
-        </tbody>`;
-        mount.innerHTML = `<table class="table">${header}${body}</table>`;
-        const ths = mount.querySelectorAll('th.sortable');
-        ths.forEach(th => {
-          th.classList.remove('asc','desc');
-          if (th.getAttribute('data-key') === sortKey) th.classList.add(sortAsc ? 'asc' : 'desc');
-          th.onclick = () => {
-            const key = th.getAttribute('data-key');
-            if (sortKey === key) sortAsc = !sortAsc; else { sortKey = key; sortAsc = true; }
-            renderTable();
-          };
-        });
-      }
-      renderTable();
+      }render();
     }
 
-    function bootThresholds(){
-      const urls = ['./params.csv','params.csv'];
-      (function next(i){
-        if (i>=urls.length) { const m=document.getElementById('thresholdsMount'); if(m) m.textContent='Konnte params.csv nicht laden.'; return; }
-        fetch(urls[i], { cache:'no-store' })
-          .then(r => r.ok ? r.text() : Promise.reject(new Error('HTTP '+r.status)))
-          .then(text => renderThresholdsYears(text))
-          .catch(()=> next(i+1));
+    document.addEventListener("DOMContentLoaded",()=>{
+      const urls=["./params.csv","params.csv"];
+      (function next(i){if(i>=urls.length){document.getElementById("thresholdsMount").textContent="Konnte params.csv nicht laden.";return;}
+        fetch(urls[i],{cache:"no-store"}).then(r=>r.ok?r.text():Promise.reject()).then(txt=>renderThresholdsYears(txt)).catch(()=>next(i+1));
       })(0);
-    }
-    document.addEventListener('DOMContentLoaded', bootThresholds);
+    });
   </script>
 </body>
 </html>
