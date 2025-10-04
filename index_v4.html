@@ -11,14 +11,17 @@
     header h1 { font-size: 22px; margin: 0; }
     .badge { padding: 4px 10px; border-radius: 999px; background: #0e1a34; color: #b4c2d8; border: 1px solid #1f2a44; font-size: 12px; }
 
+    /* Tabs UI */
     .tabs{max-width:var(--maxw);margin:8px auto 0;padding:0 10px;display:flex;gap:10px;flex-wrap:wrap}
     .tablink{padding:8px 12px;border:1px solid #1f2a44;border-radius:10px;background:#101a33;color:#e9eef2;text-decoration:none}
     .tablink.active{background:#e9eef2;color:#0b0c10}
     .tab{display:none}
     .tab.active{display:block}
 
+    /* Card */
     .card { max-width: var(--maxw); margin: 12px auto; padding: 16px; border: 1px dashed #2a3654; border-radius: 12px; background:#0f1525 }
 
+    /* Thresholds table tweaks */
     #tab-thresholds table { width:100%; border-collapse: collapse; }
     #tab-thresholds th, #tab-thresholds td { padding: 10px 12px; border-bottom: 1px solid #1f2a44; }
     #tab-thresholds thead th { font-weight: 750; letter-spacing: 0.02em; }
@@ -28,6 +31,7 @@
     #tab-thresholds th.sortable.desc::after { content: " ↓"; }
     #tab-thresholds td.num, #tab-thresholds th.num { width: 56px; text-align: right; color: #9fb3d1; }
 
+    /* Placeholder gallery styles */
     .page { max-width: var(--maxw); margin: 12px auto; padding: 0 10px; }
     .muted { color:#9fb3d1; font-size: 13px; }
   </style>
@@ -67,6 +71,7 @@
   </section>
 
   <script>
+    // ---- Tabs: robust hash routing + click intercept ----
     function activateTabByHash(){
       const hash = location.hash || '#gallery';
       const id = hash.replace('#','');
@@ -92,7 +97,7 @@
       activateTabByHash();
     });
 
-    // CSV parser
+    // ---- CSV Parser (',' oder ';'), BOM-fest ----
     function parseCSV(text) {
       const raw = (text || '').trim();
       if (!raw) return [];
@@ -108,90 +113,50 @@
       });
     }
 
-    // Helpers
+    // ---- Helpers: numbers + YEARS handling ----
     function normNumber(x) {
       if (x == null) return NaN;
-      const s = String(x).trim().replace(/\u00A0/g,' ').replace(',', '.');
+      const s = String(x).trim().replace(/\u00A0/g,' ').replace(',', '.'); // decimal comma -> dot
       const n = Number(s);
       return isFinite(n) ? n : NaN;
     }
-    function isoDateToYearFrac(iso){
-      // Return decimal years relative to Jan-01 of that year
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(iso||""))) return NaN;
-      const d = new Date(String(iso) + "T00:00:00Z");
-      if (isNaN(d)) return NaN;
-      const y0 = Date.UTC(d.getUTCFullYear(), 0, 1);
-      const y1 = Date.UTC(d.getUTCFullYear()+1, 0, 1);
-      const frac = (d.getTime() - y0) / (y1 - y0);
-      return d.getUTCFullYear() + frac;
-    }
+
+    // Convert decimal YEARS index to a calendar date if baseline is supplied.
     function yearsIndexToDate(xYears, baseline_date, baseline_year) {
       if (!isFinite(xYears)) return "";
-      let baseYearNum = NaN, baseMonth = 0;
+      let base;
       if (baseline_date && /^\d{4}-\d{2}-\d{2}$/.test(String(baseline_date))) {
-        const bd = new Date(String(baseline_date) + 'T00:00:00Z');
-        if (!isNaN(bd)) { baseYearNum = bd.getUTCFullYear(); baseMonth = bd.getUTCMonth(); }
+        base = new Date(String(baseline_date) + 'T00:00:00Z');
       } else if (isFinite(normNumber(baseline_year))) {
-        baseYearNum = Math.round(normNumber(baseline_year));
+        base = new Date(String(Math.round(normNumber(baseline_year))) + '-01-01T00:00:00Z');
       } else {
-        return "";
+        return ""; // no baseline to map to calendar date
       }
+      if (isNaN(base)) return "";
       const years = Math.floor(xYears);
       const frac = xYears - years;
       const months = Math.round(frac * 12);
-      const d = new Date(Date.UTC(baseYearNum + years, baseMonth + months, 1));
+      const d = new Date(Date.UTC(base.getUTCFullYear() + years, base.getUTCMonth() + months, 1));
       d.setUTCDate(15);
       return d.toISOString().slice(0,10);
     }
 
-    // Inversion in Jahren
+    // ---- Model inversion in YEARS ----
+    // y = 1 - exp( v1 * (x - (t0 - 1))^v2 ), where x, t0 are in YEARS
+    // x(y) = (t0 - 1) + [ ln(1 - y) / v1 ]^(1/v2)
     function inv_x_years(y, v1, v2, t0_years) {
       if (!(y > 0 && y < 1)) return {x:NaN, why:"y∉(0,1)"};
       const v1n = normNumber(v1), v2n = normNumber(v2), t0n = normNumber(t0_years);
       if (!isFinite(v1n) || !isFinite(v2n) || !isFinite(t0n)) return {x:NaN, why:"v1/v2/t0 nicht numerisch"};
       if (v2n === 0) return {x:NaN, why:"v2=0"};
       if (v1n >= 0) return {x:NaN, why:"v1 muss < 0 sein"};
-      const num = Math.log(1 - y) / v1n;
+      const num = Math.log(1 - y) / v1n; // negative / negative -> positive
       if (!(num > 0)) return {x:NaN, why:"ln(1-y)/v1 ≤ 0"};
       const x = (t0n - 1) + Math.pow(num, 1 / v2n);
       return {x, why:null};
     }
 
-    // t0 normalisieren: akzeptiere
-    // - numerischen Jahresindex (dezimal)
-    // - absolute Jahreszahl (>=1800) → Index relativ zur Baseline (1-basiert)
-    // - ISO-Datum → Jahrfraktion → Index relativ zur Baseline (1-basiert)
-    function getT0Years(r){
-      const baseDate = r.baseline_date || "";
-      const baseYear = normNumber(r.baseline_year);
-      const t0raw = (r.t0 || "").trim();
-      let t0n = normNumber(t0raw);
-
-      // absolute Jahreszahl?
-      if (isFinite(t0n) && t0n >= 1800 && (isFinite(baseYear) || /^\d{4}-\d{2}-\d{2}$/.test(baseDate))) {
-        const by = isFinite(baseYear) ? Math.round(baseYear)
-                  : (new Date(baseDate + "T00:00:00Z")).getUTCFullYear();
-        t0n = (t0n - by) + 1; // 1-basiert für unsere (t0 - 1) Formel
-        return t0n;
-      }
-
-      // ISO-Datum?
-      if (/^\d{4}-\d{2}-\d{2}$/.test(t0raw)) {
-        const t0yf = isoDateToYearFrac(t0raw);
-        let by = NaN;
-        if (isFinite(baseYear)) by = baseYear;
-        else if (/^\d{4}-\d{2}-\d{2}$/.test(baseDate)) by = isoDateToYearFrac(baseDate);
-        if (isFinite(by) && isFinite(t0yf)) {
-          t0n = (t0yf - by) + 1; // wieder 1-basiert
-          return t0n;
-        }
-      }
-
-      // ansonsten: t0 ist bereits Jahresindex
-      return t0n;
-    }
-
-    // Thresholds rendern
+    // ---- Thresholds with sorting & row numbers (YEARS-based) ----
     function renderThresholdsYears(csvText){
       const rows = parseCSV(csvText);
       const mount = document.getElementById('thresholdsMount');
@@ -200,7 +165,7 @@
       let data = rows.map(r => {
         const v1 = normNumber(r.v1);
         const v2 = normNumber(r.v2);
-        const t0y = getT0Years(r);
+        const t0y = normNumber(r.t0); // t0 in YEARS (decimal)
         const baseDate = r.baseline_date || "";
         const baseYear = normNumber(r.baseline_year);
 
@@ -230,7 +195,7 @@
         const n = parseFloat(String(s).replace(',','.'));
         return isFinite(n) ? n : (s||'').toString().toLowerCase();
       }
-      let sortKey = "val80", sortAsc = true;
+      let sortKey = "val80", sortAsc = true; // default: earliest 80%
       function doSort() {
         if (!sortKey) return;
         data.sort((a,b) => {
@@ -283,6 +248,7 @@
       renderTable();
     }
 
+    // Boot thresholds
     function bootThresholds(){
       const urls = ['./params.csv','params.csv'];
       (function next(i){
