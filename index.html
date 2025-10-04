@@ -37,7 +37,9 @@
     .field label{font-size:12px;color:#9fb3d1}
     input[type="number"], select { background:#0e1a34; border:1px solid #1f2a44; color:#e9eef2; padding:8px 10px; border-radius:8px; }
     button { background:#e9eef2;color:#0b0c10;border:0;padding:10px 12px;border-radius:10px;cursor:pointer }
+    .btn-ghost { background:#0e1a34; color:#e9eef2; border:1px solid #1f2a44; }
     .help { font-size:13px; color:#b4c2d8; margin: 4px 0 0; }
+    .spacer { flex: 1 1 auto; }
   </style>
 </head>
 <body>
@@ -77,8 +79,17 @@
           <label for="variantMulti">Variant filter (multi-select)</label>
           <select id="variantMulti" multiple size="6" aria-label="Variant multi-select"></select>
         </div>
+        <div class="spacer"></div>
+        <div class="field" style="min-width:240px">
+          <label>Export current table</label>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button id="exportCsv" class="btn-ghost">CSV (comma)</button>
+            <button id="exportCsvEU" class="btn-ghost">CSV (semicolon)</button>
+            <button id="copyCsv" class="btn-ghost">Copy CSV</button>
+          </div>
+        </div>
       </div>
-      <p class="help">Choose a custom threshold, then sort the table. Use the variant filter to include multiple categories. Default selects “Whole” (aka the total market).</p>
+      <p class="help">Choose a custom threshold, then sort the table. Use the variant filter to include multiple categories. Default selects “Whole” (the total market). Exports reflect your current filter and custom setting.</p>
     </div>
     <div id="thresholdsMount" class="card">Loading <code>params.csv</code> and computing 20% / 50% / 80% + Custom in the browser.</div>
   </section>
@@ -119,14 +130,14 @@
     function parseCSV(text) {
       const raw = (text || '').trim();
       if (!raw) return [];
-      const first = raw.split(/\r?\n/)[0] || '';
+      const first = raw.split(/\r?\\n/)[0] || '';
       const delimiter = (first.match(/;/g)||[]).length > (first.match(/,/g)||[]).length ? ';' : ',';
-      const lines = raw.split(/\r?\n/);
-      const header = (lines.shift() || '').split(delimiter).map(h => h.replace(/^\uFEFF?/,'').trim());
+      const lines = raw.split(/\\r?\\n/);
+      const header = (lines.shift() || '').split(delimiter).map(h => h.replace(/^\\uFEFF?/,'').trim());
       return lines.filter(Boolean).map(line => {
-        const cols = line.split(new RegExp(`${delimiter}(?=(?:[^"]*"[^"]*")*[^"]*$)`));
+        const cols = line.split(new RegExp(\`\${delimiter}(?=(?:[^"]*"[^"]*")*[^"]*$)\`));
         const o = {};
-        header.forEach((h,i)=> o[h] = (cols[i]||'').replace(/^"|"$/g,'').trim());
+        header.forEach((h,i)=> o[h] = (cols[i]||'').replace(/^"|"$|\\u200B/g,'').trim());
         return o;
       });
     }
@@ -134,34 +145,32 @@
     // ---------- Helpers ----------
     const normNumber = x => { const s = String(x||"").trim().replace(',','.'); const n = Number(s); return isFinite(n)?n:NaN; };
     function isoDateToYearFrac(iso){
-      if(!/^\d{4}-\d{2}-\d{2}$/.test(String(iso||"")))return NaN;
+      if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(String(iso||"")))return NaN;
       const d=new Date(iso+"T00:00:00Z"); if(isNaN(d))return NaN;
       const y0=Date.UTC(d.getUTCFullYear(),0,1), y1=Date.UTC(d.getUTCFullYear()+1,0,1);
       return d.getUTCFullYear()+((d.getTime()-y0)/(y1-y0));
     }
     function toYYYYMM(s){
       if(!s) return '';
-      if(/^\d{4}-\d{2}$/.test(s)) return s;
-      if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s.slice(0,7);
+      if(/^\\d{4}-\\d{2}$/.test(s)) return s;
+      if(/^\\d{4}-\\d{2}-\\d{2}$/.test(s)) return s.slice(0,7);
       return '';
     }
 
-    // Normalize and label mapping for variant bases
+    // normalize variant base to canonical keys
     function normalizeBase(s){
       const k = String(s||'').trim().toLowerCase();
       if(!k) return '';
-      // Map common synonyms to 'whole' (total market)
       if(['all','total','overall','whole','total market','market total','entire','entire market','total vehicles','fleet total'].includes(k)) return 'whole';
       return k;
     }
     function displayLabelFromBase(base){
       const n = normalizeBase(base);
       if(n==='whole') return 'Whole';
-      // Title-case fallback for nicer display
-      return String(base||'').replace(/\s+/g,' ').trim().replace(/(^|\s)\S/g, c => c.toUpperCase());
+      return String(base||'').replace(/\\s+/g,' ').trim().replace(/(^|\\s)\\S/g, c => c.toUpperCase());
     }
 
-    // Turn year-index into exact ISO date, with absolute-year guard
+    // year-index to ISO date with absolute-year guard
     function yearsIndexToDate(xYears, baseline_date, baseline_year){
       if(!isFinite(xYears)) return "";
       if (xYears >= 1800 && xYears < 3000) {
@@ -173,7 +182,7 @@
         return new Date(t).toISOString().slice(0,10);
       }
       let base;
-      if(baseline_date && /^\d{4}-\d{2}-\d{2}$/.test(baseline_date)){
+      if(baseline_date && /^\\d{4}-\\d{2}-\\d{2}$/.test(baseline_date)){
         base=new Date(baseline_date+"T00:00:00Z");
       }else if(isFinite(normNumber(baseline_year))){
         base=new Date(Math.round(normNumber(baseline_year))+"-01-01T00:00:00Z");
@@ -183,8 +192,7 @@
       const start=new Date(Date.UTC(base.getUTCFullYear()+years, base.getUTCMonth(), base.getUTCDate()));
       const end=new Date(Date.UTC(start.getUTCFullYear()+1,start.getUTCMonth(),start.getUTCDate()));
       const t=start.getTime()+frac*(end.getTime()-start.getTime());
-      const d=new Date(t);
-      return d.toISOString().slice(0,10);
+      return new Date(t).toISOString().slice(0,10);
     }
 
     function inv_x_years(y,v1,v2,t0){
@@ -200,11 +208,11 @@
     function getT0Years(r){
       const baseDate=r.baseline_date||"", baseYear=normNumber(r.baseline_year), t0raw=(r.t0||"").trim();
       let t0n=normNumber(t0raw);
-      if(isFinite(t0n)&&t0n>=1800&&(isFinite(baseYear)||/^\d{4}-\d{2}-\d{2}$/.test(baseDate))){
+      if(isFinite(t0n)&&t0n>=1800&&(isFinite(baseYear)||/^\\d{4}-\\d{2}-\\d{2}$/.test(baseDate))){
         const by=isFinite(baseYear)?Math.round(baseYear):(new Date(baseDate+"T00:00:00Z")).getUTCFullYear();
         return (t0n-by)+1;
       }
-      if(/^\d{4}-\d{2}-\d{2}$/.test(t0raw)){
+      if(/^\\d{4}-\\d{2}-\\d{2}$/.test(t0raw)){
         const t0yf=isoDateToYearFrac(t0raw);
         const by=isFinite(baseYear)?baseYear:isoDateToYearFrac(baseDate);
         if(isFinite(by)&&isFinite(t0yf))return (t0yf-by)+1;
@@ -212,7 +220,6 @@
       return t0n;
     }
 
-    // Guess the freshest data month from multiple possible columns
     function getDataPer(r){
       const candidates=[
         r.data_per, r.latest_month, r.last_month, r.month_latest, r.data_month,
@@ -227,8 +234,8 @@
 
     function extractVariantParts(variant){
       const v=String(variant||'');
-      const base = v.replace(/\s*\([^)]*\)\s*$/, '').trim();
-      const paren = (v.match(/\(([^)]*)\)/)||[])[1]||'';
+      const base = v.replace(/\\s*\\([^)]*\\)\\s*$/, '').trim();
+      const paren = (v.match(/\\(([^)]*)\\)/)||[])[1]||'';
       const attrs = new Set();
       paren.split(/[,;|/]/).map(s=>s.trim()).filter(Boolean).forEach(x=>attrs.add(x));
       return { base, attrs: Array.from(attrs) };
@@ -245,27 +252,24 @@
       const rows=parseCSV(csvText); const mount=document.getElementById('thresholdsMount');
       if(!rows.length){ mount.textContent="params.csv contains no data rows."; return; }
 
-      // Build variant base list
+      // Build variant base list and collapse synonyms to canonical keys
       const rawBases = new Set();
       rows.forEach(r=>{ const parts=extractVariantParts(r.variant||''); if(parts.base) rawBases.add(parts.base); });
 
-      // Collapse synonyms and build options
       const sel = document.getElementById('variantMulti');
       sel.innerHTML = '';
       const bases = [...rawBases].sort((a,b)=>a.localeCompare(b));
       const seenCanonical = new Set();
-      const optionMap = []; // {canonical, label}
+      const optionMap = [];
       bases.forEach(base => {
         const canonical = normalizeBase(base);
         const label = displayLabelFromBase(base);
         if(!canonical) return;
-        if(seenCanonical.has(canonical)) return; // don't duplicate synonyms
+        if(seenCanonical.has(canonical)) return;
         seenCanonical.add(canonical);
         optionMap.push({canonical, label});
       });
-      // Ensure 'whole' appears first if present
       optionMap.sort((a,b)=> (a.canonical==='whole'? -1 : b.canonical==='whole'? 1 : a.label.localeCompare(b.label)) );
-
       optionMap.forEach(({canonical,label}) => {
         const opt = document.createElement('option');
         opt.value = canonical;
@@ -296,7 +300,6 @@
           return {
             country: r.country||'',
             variantBaseCanonical: normalizeBase(parts.base||''),
-            variantDisplay: parts.base || '',
             variant: r.variant||'',
             val20: f20.text, _v20: f20.val,
             val50: f50.text, _v50: f50.val,
@@ -310,7 +313,6 @@
       function getSelectedCanonicals(){
         return Array.from(sel.selectedOptions || []).map(o => o.value);
       }
-
       function applyVariantFilter(arr){
         const selected = new Set(getSelectedCanonicals());
         if(selected.size===0) return [];
@@ -371,6 +373,72 @@
           th.onclick=()=>{ const key=th.dataset.key; if(sortKey===key) sortAsc=!sortAsc; else { sortKey=key; sortAsc=true; } renderTable(); };
         });
       }
+
+      // ------- EXPORTS -------
+      function escapeCsvCell(s, delimiter){
+        const needsQuote = typeof s === 'string' && (s.includes(delimiter) || s.includes('"') || s.includes('\n'));
+        let out = String(s ?? '');
+        out = out.replace(/"/g, '""');
+        return needsQuote ? `"${out}"` : out;
+      }
+      function buildExportRows(){
+        const filtered = applyVariantFilter(data).slice();
+        return filtered.map((r,i)=>({
+          rank: i+1,
+          country: r.country,
+          variant: r.variant,
+          y20: r.val20,
+          y50: r.val50,
+          y80: r.val80,
+          ycustom: r.custom,
+          data_per: r.data_per || ''
+        }));
+      }
+      function download(filename, text, mime){
+        const blob = new Blob([text], {type: mime || 'text/plain;charset=utf-8'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click();
+        setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 0);
+      }
+      function rowsToCSV(rows, delimiter){
+        const d = delimiter || ',';
+        const header = ['#','Country','Variant','20%','50%','80%','Custom','Data per'];
+        const head = header.map(h => escapeCsvCell(h, d)).join(d);
+        const body = rows.map(r => [r.rank,r.country,r.variant,r.y20,r.y50,r.y80,r.ycustom,r.data_per].map(v=>escapeCsvCell(v,d)).join(d)).join('\n');
+        return head + '\n' + body + '\n';
+      }
+      function copyToClipboard(text){
+        if(navigator.clipboard && window.isSecureContext){
+          return navigator.clipboard.writeText(text);
+        }
+        const ta = document.createElement('textarea');
+        ta.value = text; document.body.appendChild(ta);
+        ta.select(); document.execCommand('copy'); ta.remove();
+        return Promise.resolve();
+      }
+
+      document.getElementById('exportCsv').addEventListener('click', ()=>{
+        const rows = buildExportRows();
+        const csv = rowsToCSV(rows, ',');
+        download('bev_thresholds.csv', csv, 'text/csv;charset=utf-8');
+      });
+      document.getElementById('exportCsvEU').addEventListener('click', ()=>{
+        const rows = buildExportRows();
+        const csv = rowsToCSV(rows, ';');
+        download('bev_thresholds_eu.csv', csv, 'text/csv;charset=utf-8');
+      });
+      document.getElementById('copyCsv').addEventListener('click', ()=>{
+        const rows = buildExportRows();
+        const csv = rowsToCSV(rows, ',');
+        copyToClipboard(csv).then(()=>{
+          const btn = document.getElementById('copyCsv');
+          const old = btn.textContent;
+          btn.textContent = 'Copied ✓';
+          setTimeout(()=>btn.textContent = old, 1200);
+        });
+      });
 
       renderTable();
     }
