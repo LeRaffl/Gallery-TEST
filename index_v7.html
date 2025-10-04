@@ -34,13 +34,13 @@
     .field{display:flex;flex-direction:column;gap:6px}
     .field label{font-size:12px;color:#9fb3d1}
     input[type="text"], input[type="number"], select { background:#0e1a34; border:1px solid #1f2a44; color:#e9eef2; padding:8px 10px; border-radius:8px; }
+    .chips { display:flex; gap:8px; flex-wrap:wrap; }
+    .chip { background:#0e1a34; border:1px solid #1f2a44; padding:4px 8px; border-radius:999px; font-size:12px; color:#b4c2d8 }
     details.filterbox { margin-left:auto; }
     details.filterbox summary { list-style:none; cursor:pointer; background:#0e1a34; border:1px solid #1f2a44; padding:8px 10px; border-radius:8px; }
     .dropdown { position:absolute; z-index:2; background:#0f1525; border:1px solid #1f2a44; border-radius:10px; padding:8px; display:grid; grid-template-columns:repeat(2,minmax(120px,1fr)); gap:6px 14px; }
     .rel { position:relative; }
-    .help { font-size:13px; color:#b4c2d8; margin: 4px 0 0; }
-    .checkboxes{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-    .checkboxes label{display:flex;gap:6px;align-items:center;background:#0e1a34;border:1px solid #1f2a44;padding:6px 10px;border-radius:999px;font-size:12px;color:#b4c2d8}
+    .hint { font-size:12px; color:#9fb3d1; margin-top:6px; }
   </style>
 </head>
 <body>
@@ -73,16 +73,12 @@
           <label>&nbsp;</label>
           <button id="applyBtn" style="background:#e9eef2;color:#0b0c10;border:0;padding:10px 12px;border-radius:10px;cursor:pointer">Recalculate</button>
         </div>
-        <div class="field" style="min-width:340px">
-          <label>Variant filter (multi-select)</label>
-          <div id="variantFilters" class="checkboxes"></div>
-        </div>
         <details class="filterbox rel">
           <summary>Variant: choose attributes to display</summary>
           <div id="variantDropdown" class="dropdown" hidden></div>
         </details>
       </div>
-      <p class="help">Set a custom threshold, then sort columns. Use the variant filter to include multiple categories (default shows only "All"). Toggle which attributes are shown in the Variant column via the dropdown.</p>
+      <div class="hint">Columns “Model date” and “Source” removed. New: “Data per” shows freshest data month (YYYY‑MM). “Custom” column equals the threshold set above.</div>
     </div>
     <div id="thresholdsMount" class="card">Loading <code>params.csv</code> and computing 20% / 50% / 80% + Custom in the browser.</div>
   </section>
@@ -206,7 +202,7 @@
       return '';
     }
 
-    // Variant attribute handling: DISPLAY only
+    // Variant attribute handling: which attributes to DISPLAY
     function extractVariantParts(variant){
       const v=String(variant||'');
       const base = v.replace(/\s*\([^)]*\)\s*$/, '').trim();
@@ -227,15 +223,14 @@
       const rows=parseCSV(csvText); const mount=document.getElementById('thresholdsMount');
       if(!rows.length){ mount.textContent="params.csv contains no data rows."; return; }
 
-      // Build attribute universe and variant base list
+      // Build attribute universe from Variant parentheses
       const attrUniverse = new Set();
-      const variantBases = new Set();
-      rows.forEach(r=>{ const parts=extractVariantParts(r.variant||''); parts.attrs.forEach(a=>attrUniverse.add(a)); variantBases.add(parts.base||''); });
+      rows.forEach(r=>{ extractVariantParts(r.variant||'').attrs.forEach(a=>attrUniverse.add(a)); });
 
-      // Populate attribute dropdown (display only)
+      // UI: populate attribute dropdown with checkboxes
       const dd = document.getElementById('variantDropdown');
       dd.innerHTML = '';
-      const chosenAttrs = new Set(attrUniverse); // show all by default
+      const chosen = new Set(attrUniverse); // by default show all
       if(attrUniverse.size){ dd.hidden=false; }
       [...attrUniverse].sort().forEach(attr=>{
         const id = 'attr_' + attr.replace(/\W+/g,'_');
@@ -244,25 +239,7 @@
         wrap.innerHTML = `<input type="checkbox" id="${id}" checked> <span>${attr}</span>`;
         dd.appendChild(wrap);
         wrap.querySelector('input').addEventListener('change', e=>{
-          if(e.target.checked) chosenAttrs.add(attr); else chosenAttrs.delete(attr);
-          renderTable();
-        });
-      });
-
-      // Variant multi-select checkboxes
-      const variantFiltersDiv = document.getElementById('variantFilters');
-      const selectedVariants = new Set();
-      // Default: only "All" selected if present, else nothing
-      const sortedBases = [...variantBases].filter(Boolean).sort((a,b)=> a.localeCompare(b));
-      sortedBases.forEach(base=>{
-        const id = 'vb_' + base.replace(/\W+/g,'_');
-        const lbl = document.createElement('label');
-        lbl.innerHTML = `<input type="checkbox" id="${id}"> <span>${base}</span>`;
-        variantFiltersDiv.appendChild(lbl);
-        const input = lbl.querySelector('input');
-        if(base.toLowerCase()==='all'){ input.checked = true; selectedVariants.add(base); }
-        input.addEventListener('change', e=>{
-          if(e.target.checked) selectedVariants.add(base); else selectedVariants.delete(base);
+          if(e.target.checked) chosen.add(attr); else chosen.delete(attr);
           renderTable();
         });
       });
@@ -286,11 +263,10 @@
           };
           const f20=fmt(r20), f50=fmt(r50), f80=fmt(r80), fc=fmt(rc);
           const parts = extractVariantParts(r.variant||'');
-          const shownAttrs = parts.attrs.filter(a=>chosenAttrs.has(a));
+          const shownAttrs = parts.attrs.filter(a=>chosen.has(a));
           const variantShown = shownAttrs.length ? `${parts.base} (${shownAttrs.join(', ')})` : parts.base;
           return {
             country: r.country||'',
-            variantBase: parts.base||'',
             variantRaw: r.variant||'',
             variant: variantShown,
             val20: f20.text, _v20: f20.val,
@@ -300,14 +276,6 @@
             data_per: getDataPer(r)
           };
         });
-      }
-
-      function applyVariantFilter(arr){
-        if(selectedVariants.size===0){
-          // Show nothing if user unchecks all
-          return [];
-        }
-        return arr.filter(r => selectedVariants.has((r.variantBase||'')));
       }
 
       let data = computeData();
@@ -341,8 +309,7 @@
       }
 
       function bodyHTML(){
-        const filtered = applyVariantFilter(data);
-        return `<tbody>${filtered.map((r,i)=>`<tr>
+        return `<tbody>${data.map((r,i)=>`<tr>
           <td class="num">${i+1}</td>
           <td>${r.country}</td>
           <td>${r.variant}</td>
