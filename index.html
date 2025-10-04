@@ -121,7 +121,7 @@
       if (!raw) return [];
       const first = raw.split(/\r?\n/)[0] || '';
       const delimiter = (first.match(/;/g)||[]).length > (first.match(/,/g)||[]).length ? ';' : ',';
-      const lines = raw split = raw.split(/\r?\n/);
+      const lines = raw.split(/\r?\n/);
       const header = (lines.shift() || '').split(delimiter).map(h => h.replace(/^\uFEFF?/,'').trim());
       return lines.filter(Boolean).map(line => {
         const cols = line.split(new RegExp(`${delimiter}(?=(?:[^"]*"[^"]*")*[^"]*$)`));
