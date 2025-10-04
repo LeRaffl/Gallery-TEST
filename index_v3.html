@@ -73,10 +73,12 @@ dialog#lightbox::backdrop{background:rgba(0,0,0,.6)}
 .tablink.active{background:#e9eef2;color:#0b0c10}
 .tab{display:none}
 .tab.active{display:block}
+
+
 /* Thresholds table tweaks */
 #tab-thresholds table { width:100%; border-collapse: collapse; }
 #tab-thresholds th, #tab-thresholds td { padding: 10px 12px; border-bottom: 1px solid #1f2a44; }
-#tab-thresholds thead th { font-weight: 700; letter-spacing: 0.02em; }
+#tab-thresholds thead th { font-weight: 700; letter-spacing: 0.02em; text-transform: none; }
 #tab-thresholds th.sortable { cursor: pointer; position: relative; user-select: none; }
 #tab-thresholds th.sortable::after { content: " ↕"; opacity: 0.6; font-size: 0.9em; }
 #tab-thresholds th.sortable.asc::after { content: " ↑"; }
@@ -159,16 +161,16 @@ dialog#lightbox::backdrop{background:rgba(0,0,0,.6)}
 
 
 
-<section id="tab-thresholds" class="tab">
+<section id="tab-thresholds" class="tab" hidden>
   <div style="max-width:var(--maxw);margin:14px auto;padding:0 10px">
     <h2 style="margin:0 0 12px;font-size:16px">Thresholds (Test)</h2>
     <div id="thresholdsMount" class="empty" style="padding:16px;border:1px dashed #2a3654;border-radius:10px;background:#0f1525">
-      Lädt params.csv und berechnet 20/50/80 live im Browser.
+      Lädt params.csv und berechnet p=0.20/0.50/0.80 live im Browser.
     </div>
   </div>
 </section>
 
-<section id="tab-durations" class="tab">
+<section id="tab-durations" class="tab" hidden>
   <div style="max-width:var(--maxw);margin:14px auto;padding:0 10px">
     <h2 style="margin:0 0 12px;font-size:16px">Durations</h2>
     <div id="durationsMount" class="empty" style="padding:16px;border:1px dashed #2a3654;border-radius:10px;background:#0f1525">
@@ -179,33 +181,22 @@ dialog#lightbox::backdrop{background:rgba(0,0,0,.6)}
 
 <script>
 
-// ---- Tabs: robust hash routing + click intercept ----
+// ---- Tabs: hash-based routing ----
 function activateTabByHash(){
   const hash = location.hash || '#gallery';
+  document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tablink').forEach(a => a.classList.remove('active'));
   const id = hash.replace('#','');
-  const tabs = document.querySelectorAll('.tab');
-  const links = document.querySelectorAll('.tablink');
-  tabs.forEach(el => { el.classList.remove('active'); el.setAttribute('hidden',''); });
-  links.forEach(a => a.classList.remove('active'));
   const tab = document.getElementById('tab-' + id) || document.getElementById('tab-gallery');
-  const link = document.querySelector('.tablink[href="#' + id + '"]') || document.querySelector('.tablink[href="#gallery"]');
-  if (tab) { tab.classList.add('active'); tab.removeAttribute('hidden'); }
+  if (tab) tab.classList.add('active');
+  const link = document.querySelector('.tablink[href="' + (tab ? '#' + id : '#gallery') + '"]');
   if (link) link.classList.add('active');
 }
 window.addEventListener('hashchange', activateTabByHash);
-document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('.tablink').forEach(a => {
-    a.addEventListener('click', (e) => {
-      e.preventDefault();
-      const href = a.getAttribute('href') || '#gallery';
-      history.replaceState(null, '', href);
-      activateTabByHash();
-    });
-  });
-  activateTabByHash();
-});
+document.addEventListener('DOMContentLoaded', activateTabByHash);
+// ---- /Tabs ----
 
-// ---- CSV Parser (',' oder ';') ----
+// ---- CSV Parser (',' oder ';'), BOM-fest ----
 function parseCSV(text) {
   const raw = (text || '').trim();
   if (!raw) return [];
@@ -216,68 +207,84 @@ function parseCSV(text) {
   return lines.filter(Boolean).map(line => {
     const cols = line.split(new RegExp(`${delimiter}(?=(?:[^"]*"[^"]*")*[^"]*$)`));
     const o = {};
-    header.forEach((h,i)=> o[h] = (cols[i]||'').replace(/^\"|\"$/g,'').trim());
+    header.forEach((h,i)=> o[h] = (cols[i]||'').replace(/^"|"$/g,'').trim());
     return o;
   });
 }
 
-// ---- Inversion: y = 1 - exp( v1 * (x - (t0 - 1))^v2 )
+// ---- Inversion deiner Funktion: y = 1 - exp( v1 * (x - (t0 - 1))^v2 )
+// x(y) = (t0 - 1) + [ ln(1 - y) / v1 ]^(1/v2)
 function x_for_threshold(y, v1, v2, t0) {
   if (!(y > 0 && y < 1)) return NaN;
   const v1n = Number(v1), v2n = Number(v2), t0n = Number(t0);
   if (!isFinite(v1n) || !isFinite(v2n) || !isFinite(t0n) || v2n === 0) return NaN;
-  const num = Math.log(1 - y) / v1n; // v1 < 0 erwartet
-  if (!(num > 0)) return NaN;
+  const num = Math.log(1 - y) / v1n; // erwartet v1 < 0
+  if (!(num > 0)) return NaN; // sonst keine reelle Wurzel
   return (t0n - 1) + Math.pow(num, 1 / v2n);
 }
+
+// Optional: x (1-basiert, Monate) -> Datum, wenn baseline_date (x=1) existiert
 function monthsIndexToDate(x, baselineISO) {
   if (!baselineISO) return '';
   const base = new Date(baselineISO + 'T00:00:00Z');
   if (isNaN(base.getTime()) || !isFinite(x)) return '';
-  const shift = x - 1, whole = Math.floor(shift), frac = shift - whole;
+  const shift = x - 1;
+  const whole = Math.floor(shift);
+  const frac  = shift - whole;
   const d = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + whole, 1));
-  d.setUTCDate(15); d.setUTCDate(d.getUTCDate() + Math.round(frac * 30));
+  d.setUTCDate(15);
+  d.setUTCDate(d.getUTCDate() + Math.round(frac * 30));
   return d.toISOString().slice(0,10);
 }
 
-// ---- Thresholds with sorting & row numbers ----
+// ---- Minimal-Renderer für Thresholds ----
+
 function renderThresholdsMinimal(csvText){
   const rows = parseCSV(csvText);
   const mount = document.getElementById('thresholdsMount');
   if (!rows.length) { mount.textContent = 'params.csv enthält keine Datenzeilen.'; return; }
 
+  const targets = [0.2, 0.5, 0.8];
+  const hasDate = !!(rows[0] && rows[0].baseline_date);
+
+  // Build derived data
   let data = rows.map(r => {
     const v1 = Number(r.v1), v2 = Number(r.v2), t0 = Number(r.t0);
     const base = r.baseline_date || '';
-    const x20 = x_for_threshold(0.2, v1, v2, t0);
-    const x50 = x_for_threshold(0.5, v1, v2, t0);
-    const x80 = x_for_threshold(0.8, v1, v2, t0);
+    const x20 = x_for_threshold(targets[0], v1, v2, t0);
+    const x50 = x_for_threshold(targets[1], v1, v2, t0);
+    const x80 = x_for_threshold(targets[2], v1, v2, t0);
     const f = (x) => base ? monthsIndexToDate(x, base) : (isFinite(x) ? x.toFixed(2) : '');
     return {
       country: r.country || '',
       variant: r.variant || '',
-      val20: f(x20), val50: f(x50), val80: f(x80),
+      v1: r.v1, v2: r.v2, t0: r.t0, baseline_date: base,
+      v20: f(x20), v50: f(x50), v80: f(x80),
       model_date: r.model_date || '',
       source: r.source || ''
     };
   });
 
+  // Helper: sort by key (dates smart)
   function isoOrVal(s) {
     const t = Date.parse(s);
     if (!isNaN(t)) return t;
     const n = parseFloat(s);
-    return isFinite(n) ? n : (s||'').toString().toLowerCase();
+    return isFinite(n) ? n : s.toString().toLowerCase();
   }
-  let sortKey = null, sortAsc = true;
+  let sortKey = null;
+  let sortAsc = true;
   function doSort() {
     if (!sortKey) return;
     data.sort((a,b) => {
-      const va = isoOrVal(a[sortKey]); const vb = isoOrVal(b[sortKey]);
+      const va = isoOrVal(a[sortKey]);
+      const vb = isoOrVal(b[sortKey]);
       if (va < vb) return sortAsc ? -1 : 1;
       if (va > vb) return sortAsc ? 1 : -1;
       return 0;
     });
   }
+
   function renderTable() {
     doSort();
     const header = `
@@ -286,50 +293,111 @@ function renderThresholdsMinimal(csvText){
           <th class="num">#</th>
           <th class="sortable" data-key="country">Land</th>
           <th class="sortable" data-key="variant">Variante</th>
-          <th class="sortable" data-key="val20">20%</th>
-          <th class="sortable" data-key="val50">50%</th>
-          <th class="sortable" data-key="val80">80%</th>
+          <th class="sortable" data-key="v20">20%</th>
+          <th class="sortable" data-key="v50">50%</th>
+          <th class="sortable" data-key="v80">80%</th>
           <th class="sortable" data-key="model_date">Modelldatum</th>
           <th>Quelle</th>
         </tr>
       </thead>`;
+
     const body = `<tbody>
-      ${data.map((r,i)=>`
+      ${data.map((r,i) => `
         <tr>
           <td class="num">${i+1}</td>
           <td>${r.country}</td>
           <td>${r.variant}</td>
-          <td>${r.val20}</td>
-          <td>${r.val50}</td>
-          <td>${r.val80}</td>
+          <td>${r.v20}</td>
+          <td>${r.v50}</td>
+          <td>${r.v80}</td>
           <td>${r.model_date}</td>
           <td>${r.source}</td>
-        </tr>`).join('')}
+        </tr>
+      `).join('')}
     </tbody>`;
+
     mount.innerHTML = `<table class="table">${header}${body}</table>`;
-    const ths = mount.querySelectorAll('th.sortable');
+
+    // Attach sort handlers
+    const ths = mount.querySelectorAll("th.sortable");
     ths.forEach(th => {
       th.classList.remove('asc','desc');
       if (th.getAttribute('data-key') === sortKey) th.classList.add(sortAsc ? 'asc' : 'desc');
       th.onclick = () => {
         const key = th.getAttribute('data-key');
-        if (sortKey === key) sortAsc = !sortAsc; else { sortKey = key; sortAsc = true; }
+        if (sortKey === key) sortAsc = !sortAsc;
+        else { sortKey = key; sortAsc = true; }
         renderTable();
       };
     });
   }
+
   renderTable();
 }
 
-// Boot for thresholds
+  const ps = [0.2, 0.5, 0.8];
+  const hasDate = !!(rows[0] && rows[0].baseline_date);
+  const th20 = hasDate ? 'p=0.20 (Datum)' : 'p=0.20 (x)';
+  const th50 = hasDate ? 'p=0.50 (Datum)' : 'p=0.50 (x)';
+  const th80 = hasDate ? 'p=0.80 (Datum)' : 'p=0.80 (x)';
+
+  const data = rows.map(r => {
+    const v1 = Number(r.v1), v2 = Number(r.v2), t0 = Number(r.t0);
+    const base = r.baseline_date || '';
+    const x20 = x_for_threshold(ps[0], v1, v2, t0);
+    const x50 = x_for_threshold(ps[1], v1, v2, t0);
+    const x80 = x_for_threshold(ps[2], v1, v2, t0);
+    return {
+      country: r.country || '',
+      variant: r.variant || '',
+      p20: base ? monthsIndexToDate(x20, base) : (isFinite(x20) ? x20.toFixed(2) : ''),
+      p50: base ? monthsIndexToDate(x50, base) : (isFinite(x50) ? x50.toFixed(2) : ''),
+      p80: base ? monthsIndexToDate(x80, base) : (isFinite(x80) ? x80.toFixed(2) : ''),
+      model_date: r.model_date || '',
+      source: r.source || ''
+    };
+  });
+
+  mount.innerHTML = `
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Land</th>
+          <th>Variante</th>
+          <th>${th20}</th>
+          <th>${th50}</th>
+          <th>${th80}</th>
+          <th>Modelldatum</th>
+          <th>Quelle</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${data.map(r => `
+          <tr>
+            <td>${r.country}</td>
+            <td>${r.variant}</td>
+            <td>${r.p20}</td>
+            <td>${r.p50}</td>
+            <td>${r.p80}</td>
+            <td>${r.model_date}</td>
+            <td>${r.source}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+// ---- Boot: params.csv laden ----
 function bootThresholds(){
-  const urls = ['./params.csv','params.csv'];
+  const mount = document.getElementById('thresholdsMount');
+  const tryUrls = ['./params.csv','params.csv'];
   (function next(i){
-    if (i>=urls.length) { const m=document.getElementById('thresholdsMount'); if(m) m.textContent='Konnte params.csv nicht laden.'; return; }
-    fetch(urls[i], { cache:'no-store' })
+    if (i>=tryUrls.length){ if(mount) mount.textContent='Konnte params.csv nicht laden.'; return; }
+    fetch(tryUrls[i], { cache:'no-store' })
       .then(r => r.ok ? r.text() : Promise.reject(new Error('HTTP '+r.status)))
       .then(text => renderThresholdsMinimal(text))
-      .catch(()=> next(i+1));
+      .catch(() => next(i+1));
   })(0);
 }
 document.addEventListener('DOMContentLoaded', bootThresholds);
