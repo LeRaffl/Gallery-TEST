@@ -87,11 +87,35 @@ dialog#lightbox::backdrop{background:rgba(0,0,0,.6)}
 /* Durations placeholder */
 .table-wrap{max-width:var(--maxw);margin:14px auto;padding:0 10px}
 
-/* Mobile: let the filter box scroll away instead of sticking */
+/* Mobile: dropdowns must be scrollable and not clipped */
 @media (max-width:880px){
-  .side{ position:static; top:auto; z-index:auto }
-  /* tighten spacing a touch on mobile */
-  .page{ gap:12px }
+  /* common native/select libs hooks */
+  select,
+  .select, .dropdown, .dropdown-menu,
+  .choices__list--dropdown, .choices__list[role="listbox"],
+  [role="listbox"], .ts-dropdown, .tom-select-dropdown,
+  .selectize-dropdown, .select2-results__options {
+    max-height: 50vh !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* containers shouldn't clip the dropdown */
+  .side, .filters, .controls, .page, .header {
+    overflow: visible !important;
+  }
+
+  /* let dropdown escape clipping parents on mobile */
+  .choices__list--dropdown, .ts-dropdown, .tom-select-dropdown,
+  .selectize-dropdown, .dropdown-menu {
+    position: absolute;
+    z-index: 9999;
+  }
+
+  /* keep the trigger higher than the gallery grid */
+  .choices, .tom-select, .selectize-control, .select-wrapper {
+    z-index: 1000;
+  }
 }
 
 </style>
