@@ -447,7 +447,7 @@ function drawMap(){
 
   // Filter gültige Länder, Antarktis raus
   const allFeats = source.filter(f => f.id && f.id !== "-99");
-  const worldFeats = allFeats.filter(f => d3.geoCentroid(f)[1] > -60);
+  const worldFeats = allFeats//.filter(f => d3.geoCentroid(f)[1] > -60);
 
 
   const {width,height} = fitSVGMap();
