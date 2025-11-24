@@ -340,6 +340,7 @@ async function loadMetrics(){
         status: (d.status || "").trim().toLowerCase(),
         special_hex: (d.special_hex || "").trim()
       }));
+      console.log("map_metrics rows:", metricsData.length);
       return;
     } catch {}
   }
@@ -347,8 +348,10 @@ async function loadMetrics(){
 }
 
 
-let features = [];
+let featuresWorld = [];
+let featuresEurope = [];
 const mapState = { region: "europe", variant: "whole", metric: "dur2080" };
+
 
 const zoomMap = d3.zoom().scaleExtent([1,8]).on("zoom", e => gMap.attr("transform", e.transform));
 svgMap.call(zoomMap);
@@ -426,12 +429,26 @@ function pinnedSide(feat, byIso){
   `;
 }
 
+function normalizeFeatureId(f){
+  const p = f.properties || {};
+  let iso = f.id
+    || p.iso3 || p.ISO3
+    || p.ISO_A3 || p.ADM0_A3 || p.SOV_A3
+    || "";
+  iso = String(iso || "").toUpperCase().trim();
+  f.id = iso || null;
+  return f;
+}
+  
+  
 function drawMap(){
-  if(!features.length) return;
+  const source = mapState.region === "world" ? featuresWorld : featuresEurope;
+  if(!source.length) return;
 
   // Filter gültige Länder, Antarktis raus
-  const allFeats = features.filter(f => f.id && f.id !== "-99");
+  const allFeats = source.filter(f => f.id && f.id !== "-99");
   const worldFeats = allFeats.filter(f => d3.geoCentroid(f)[1] > -60);
+
 
   const {width,height} = fitSVGMap();
   const proj = d3.geoMercator().fitExtent(
@@ -540,27 +557,30 @@ function bindControlsMap(){
 
 async function initMap(){
   try{
-    const topo = await d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json");
-    features = topojson.feature(topo, topo.objects.countries).features;
-    features.forEach(f => {
-      const p = f.properties || {};
-      let iso = p.iso_a3 || p.ISO_A3 || p.ADM0_A3 || p.SOV_A3 || "";
-      iso = String(iso || "").toUpperCase().trim();
-      if (!iso || iso === "-99") {
-        f.id = null;
-      } else {
-        f.id = iso;
-      }
-    });
+    // lokale GeoJSONs aus /data
+    const [worldJson, europeJson] = await Promise.all([
+      d3.json("data/world.geojson"),
+      d3.json("data/europe.geojson")
+    ]);
+
+    featuresWorld  = (worldJson.features  || worldJson || []).map(normalizeFeatureId);
+    featuresEurope = (europeJson.features || europeJson || []).map(normalizeFeatureId);
+
+    console.log("world features:", featuresWorld.length,
+                "europe features:", featuresEurope.length,
+                "metrics rows:", metricsData.length);
+
     bindControlsMap();
     drawMap();
-  }catch(err){
+  } catch(err){
     console.error("GeoJSON Load Error:", err);
     gMap.append("text")
       .text("Error loading map – check console")
       .attr("x",50).attr("y",50).attr("fill","red");
   }
 }
+
+
 
 document.addEventListener("DOMContentLoaded", async () => {
   try {
