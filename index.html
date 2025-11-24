@@ -106,6 +106,21 @@ th.sortable.desc::after{content:" ↓"}
 #tab-thresholds .tablecard th:nth-child(3),
 #tab-thresholds .tablecard td:nth-child(3){min-width:220px}
 #tab-thresholds .tablecard th:nth-child(8){white-space:nowrap}
+
+/* MAP TAB */
+.map-wrap{max-width:var(--thw);margin:14px auto;padding:0 10px;display:grid;grid-template-columns:1fr 280px;gap:16px}
+@media(max-width:880px){.map-wrap{grid-template-columns:1fr}}
+.map-card{background:#0f1525;border:1px solid #1f2a44;border-radius:14px;padding:12px}
+#map{aspect-ratio:16/9;width:100%;cursor:grab;display:block}
+#map:active{cursor:grabbing}
+.map-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:8px}
+.map-toolbar label{font-size:13px}
+.map-toolbar select{width:auto;min-width:120px}
+.map-legend{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px}
+.map-legend-meta{margin-left:auto;font-size:12px;color:#7f8a9a}
+.map-swatch{width:16px;height:16px;border-radius:3px;border:1px solid #0002}
+.map-tooltip{position:fixed;pointer-events:none;z-index:50;background:#101521;padding:8px 10px;border:1px solid #1c2333;border-radius:8px;font-size:13px}
+.map-muted{color:#7f8a9a}
 </style>
 </head>
 <body>
@@ -120,6 +135,7 @@ th.sortable.desc::after{content:" ↓"}
     <a href="#gallery" class="tablink active">Galerie</a>
     <a href="#thresholds" class="tablink">Thresholds</a>
     <a href="#durations" class="tablink">Durations</a>
+    <a href="#map" class="tablink" onclick="window.BEV_MAP && window.BEV_MAP.refresh()">Map</a>
   </nav>
 
   <!-- GALLERY TAB -->
@@ -219,12 +235,350 @@ th.sortable.desc::after{content:" ↓"}
           </div>
         </div>
       </div>
-      <p class="small" style="max-width:740px">This view shows the projected time to progress from one market share threshold to another. Columns include 20→80%, 10→90%, a user‑defined X→Y%, and the model’s numerical speed at the inflection point (slope of the tangent). Values are computed client‑side from <code>params.csv</code>. Durations longer than 200 years are shown as “shows no transition”.</p>
+      <p class="small" style="max-width:740px">This view shows the projected time to progress from one market share threshold to another. Columns include 20→80%, 10→90%, a user-defined X→Y%, and the model’s numerical speed at the inflection point (slope of the tangent). Values are computed client-side from <code>params.csv</code>. Durations longer than 200 years are shown as “shows no transition”.</p>
     </div>
     <div class="container tablepad">
       <div id="durationsMount" class="tablecard"><div style="padding:14px">Loading <code>params.csv</code>…</div></div>
     </div>
   </section>
+
+  <!-- MAP TAB -->
+  <section id="tab-map" class="tab">
+    <div class="map-wrap">
+      <div class="map-card">
+        <div class="map-toolbar">
+          <label>Region
+            <select id="regionSel">
+              <option value="world">World</option>
+              <option value="europe" selected>Europe</option>
+            </select>
+          </label>
+          <label>Variant
+            <select id="variantSel">
+              <option value="whole" selected>Whole</option>
+              <option value="private">Private</option>
+              <option value="industry">Industry</option>
+            </select>
+          </label>
+          <span class="map-toolbar">
+            <label><input type="radio" name="metric" value="dur2080" checked> 20→80 Dauer</label>
+            <label><input type="radio" name="metric" value="y20"> 20%-Year</label>
+            <label><input type="radio" name="metric" value="y80"> 80%-Year</label>
+            <label><input type="radio" name="metric" value="speed_inflect"> Speed</label>
+          </span>
+          <button id="zoomIn" class="btn" style="padding:4px 10px">+</button>
+          <button id="zoomOut" class="btn" style="padding:4px 10px">−</button>
+          <button id="zoomReset" class="btn" style="padding:4px 10px">Reset</button>
+        </div>
+        <svg id="map"></svg>
+      </div>
+      <div class="map-card">
+        <div style="display:flex;align-items:center;gap:8px">
+          <strong>Legend</strong>
+          <span id="matchMeta" class="map-legend-meta"></span>
+        </div>
+        <div id="legend" class="map-legend"></div>
+        <hr style="border-color:#1f2a44">
+        <div id="side" class="map-muted">Mouse hover over a country for specifics...</div>
+        <hr style="border-color:#1f2a44">
+        <div class="small" style="line-height:1.5">
+          Grau = keine Kartendaten<br>
+          <span style="color:#f4a3ff">Special</span> = manual coloring
+        </div>
+      </div>
+    </div>
+    <div id="tt" class="map-tooltip" style="opacity:0"></div>
+  </section>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://unpkg.com/topojson-client@3"></script>
+<script>
+// ---- TRANSITION MAP SCRIPT ----
+const COLORS = { noTrans: "#f4a3ff", missing: "#3b4258" };
+const svgMap = d3.select("#map");
+const gMap = svgMap.append("g");
+const pathMap = d3.geoPath();
+
+// Month labels (de)
+const MONTHS_DE = [
+  "Jan", "Feb", "Mär", "Apr", "Mai", "Jun",
+  "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"
+];
+
+function yearDecimalToLabel(yDec){
+  const y = Number(yDec);
+  if (!Number.isFinite(y)) return "—";
+  const year = Math.floor(y + 1e-9);
+  let frac = y - year;
+  if (!Number.isFinite(frac) || frac < 0) frac = 0;
+  if (frac > 0.9999) frac = 0.9999;
+  const mIdx = Math.floor(frac * 12); // 0..11
+  const monthName = MONTHS_DE[mIdx] || MONTHS_DE[0];
+  return `${monthName} ${year}`;
+}
+
+// Load metrics from CSV (same folder as index.html)
+let metricsData = [];
+async function loadMetrics(){
+  const candidates = [
+    "data/map_metrics.csv",
+    "./data/map_metrics.csv",
+    "map_metrics.csv"
+  ];
+  for (const url of candidates) {
+    try {
+      const r = await fetch(url, { cache: "no-store" });
+      if (!r.ok) continue;
+      metricsData = await d3.csv(url, d => ({
+        iso3: (d.iso3 || "").trim().toUpperCase(),
+        country: d.country || "",
+        variant: (d.variant || "").trim().toLowerCase(),
+        y20: +d.y20,
+        y80: +d.y80,
+        dur2080: +d.dur2080,
+        speed_inflect: +d.speed_inflect,
+        status: (d.status || "").trim().toLowerCase(),
+        special_hex: (d.special_hex || "").trim()
+      }));
+      return;
+    } catch {}
+  }
+  metricsData = [];
+}
+
+
+let features = [];
+const mapState = { region: "europe", variant: "whole", metric: "dur2080" };
+
+const zoomMap = d3.zoom().scaleExtent([1,8]).on("zoom", e => gMap.attr("transform", e.transform));
+svgMap.call(zoomMap);
+
+function fitSVGMap(){
+  const box = svgMap.node().getBoundingClientRect();
+  let w = box.width || 800;
+  let h = Math.max(360, w*9/16);
+  svgMap.attr("width", w).attr("height", h);
+  return {width:w, height:h};
+}
+
+function drawLegend(scale, lo, hi, metric){
+  const box = d3.select("#legend").html("");
+  const steps = 6;
+  for(let i=0;i<steps;i++){
+    const t = i/(steps-1);
+    const v = lo + (hi-lo)*t;
+    box.append("div")
+      .attr("class","map-swatch")
+      .style("background", scale(v));
+  }
+  box.append("div")
+    .style("width","100%")
+    .style("display","flex")
+    .style("justify-content","space-between")
+    .html(`<span>${lo.toFixed(1)}</span><span class="map-muted">${metric==="dur2080"?"Years":""}</span><span>${hi.toFixed(1)}</span>`);
+  box.append("div")
+    .style("margin-top","6px")
+    .html(`<span class="map-swatch" style="background:${COLORS.noTrans}"></span> no transition`);
+}
+
+function showTooltip(ev, feat, byIso){
+  const row = byIso.get(feat.id);
+  if (!row) return hideTooltip();
+  const fmtNum = v => Number.isFinite(v) ? v.toFixed(2) : "—";
+  const y20Label = yearDecimalToLabel(row.y20);
+  const y80Label = yearDecimalToLabel(row.y80);
+
+  d3.select("#tt").html(`
+    <div><strong>${row.country}</strong> <span class="map-muted">(${feat.id})</span></div>
+    <div class="map-muted">Variant: ${row.variant}</div>
+    <div>20→80 Dauer: <strong>${fmtNum(row.dur2080)}</strong> Jahre</div>
+    <div>20%-Year: <strong>${y20Label}</strong></div>
+    <div>80%-Year: <strong>${y80Label}</strong></div>
+    <div>Speed: <strong>${fmtNum(row.speed_inflect)}</strong></div>
+  `)
+    .style("opacity",1)
+    .style("left",(ev.clientX+12)+"px")
+    .style("top",(ev.clientY+12)+"px");
+}
+
+function hideTooltip(){ d3.select("#tt").style("opacity",0); }
+
+function pinnedSide(feat, byIso){
+  const row = byIso.get(feat.id);
+  const side = document.getElementById("side");
+  if(!row){
+    side.textContent = "No data.";
+    return;
+  }
+  const fmtNum = v => Number.isFinite(v) ? v.toFixed(2) : "—";
+  const y20Label = yearDecimalToLabel(row.y20);
+  const y80Label = yearDecimalToLabel(row.y80);
+
+  side.innerHTML = `
+    <div><strong>${row.country}</strong> <span class="map-muted">(${feat.id})</span></div>
+    <div class="map-muted">Variant: ${row.variant}</div>
+    <ul>
+      <li>20→80 Dauer: <strong>${fmtNum(row.dur2080)}</strong> Jahre</li>
+      <li>20%-Year: <strong>${y20Label}</strong></li>
+      <li>80%-Year: <strong>${y80Label}</strong></li>
+      <li>Speed: <strong>${fmtNum(row.speed_inflect)}</strong></li>
+    </ul>
+  `;
+}
+
+function drawMap(){
+  if(!features.length) return;
+
+  // Filter gültige Länder, Antarktis raus
+  const allFeats = features.filter(f => f.id && f.id !== "-99");
+  const worldFeats = allFeats.filter(f => d3.geoCentroid(f)[1] > -60);
+
+  const {width,height} = fitSVGMap();
+  const proj = d3.geoMercator().fitExtent(
+    [[0,0],[width,height]],
+    {type:"FeatureCollection",features:worldFeats}
+  );
+  pathMap.projection(proj);
+
+  // Filter metrics nach Variant
+  const rows = metricsData.filter(d =>
+    (d.variant || "").trim().toLowerCase() === mapState.variant.trim().toLowerCase()
+  );
+  const byIso = new Map(rows.map(d => [d.iso3, d]));
+
+  const total = worldFeats.length;
+  const matched = worldFeats.filter(f => byIso.has(f.id)).length;
+  document.getElementById("matchMeta").textContent = `(${matched}/${total} matched)`;
+
+  const values = worldFeats
+    .map(f => byIso.get(f.id)?.[mapState.metric])
+    .filter(Number.isFinite);
+
+  const hasValues = values.length > 0;
+  const rawMin = hasValues ? d3.min(values) : 0;
+  const rawMax = hasValues ? d3.max(values) : 10;
+  const displayMin = rawMin;
+  const displayMax = rawMax;
+
+  let color;
+  if (mapState.metric === "speed_inflect") {
+    // Speed: höher = besser => grün rechts
+    color = d3.scaleSequential(d3.interpolateRdYlGn)
+      .domain([displayMin, displayMax]);
+  } else {
+    // Dauer & Jahre: niedriger = besser => grün links
+    color = d3.scaleSequential(d3.interpolateRdYlGn)
+      .domain([displayMax, displayMin]); // invertiert
+  }
+
+  gMap.selectAll("path.country")
+    .data(worldFeats, d => d.id)
+    .join("path")
+      .attr("class","country")
+      .attr("d", pathMap)
+      .attr("fill", d => {
+        const row = byIso.get(d.id);
+        if(!row) return COLORS.missing;
+        if(row.special_hex) return row.special_hex;
+        if(row.status === "no_transition") return COLORS.noTrans;
+        const v = row[mapState.metric];
+        return Number.isFinite(v) ? color(v) : COLORS.missing;
+      })
+      .attr("stroke", "#3b4258")
+      .attr("stroke-width", 0.5)
+      .on("mousemove", (ev,d) => showTooltip(ev,d,byIso))
+      .on("mouseleave", hideTooltip)
+      .on("click", (ev,d) => pinnedSide(d,byIso));
+
+  drawLegend(color, displayMin, displayMax, mapState.metric);
+
+  // Auto-Zoom: World = full, Europe = reinzoomen
+  if(mapState.region === "world"){
+    svgMap.transition().duration(500)
+      .call(zoomMap.transform, d3.zoomIdentity);
+  } else {
+    const box = svgMap.node().getBoundingClientRect();
+    const w = box.width || 800, h = box.height || 450;
+    const centerPoint = proj([10,50]); // Mitteleuropa
+    const cx = centerPoint[0], cy = centerPoint[1];
+    svgMap.transition().duration(500)
+      .call(
+        zoomMap.transform,
+        d3.zoomIdentity
+          .translate(w/2, h/2)
+          .scale(3.5)
+          .translate(-cx, -cy)
+      );
+  }
+}
+
+function bindControlsMap(){
+  document.getElementById("regionSel").addEventListener("change", e => {
+    mapState.region = e.target.value;
+    drawMap();
+  });
+  document.getElementById("variantSel").addEventListener("change", e => {
+    mapState.variant = e.target.value;
+    drawMap();
+  });
+  document.querySelectorAll('input[name="metric"]').forEach(r => {
+    r.addEventListener("change", e => {
+      mapState.metric = e.target.value;
+      drawMap();
+    });
+  });
+  document.getElementById("zoomIn").addEventListener("click", () => {
+    svgMap.transition().duration(200).call(zoomMap.scaleBy, 1.4);
+  });
+  document.getElementById("zoomOut").addEventListener("click", () => {
+    svgMap.transition().duration(200).call(zoomMap.scaleBy, 1/1.4);
+  });
+  document.getElementById("zoomReset").addEventListener("click", () => {
+    svgMap.transition().duration(200).call(zoomMap.transform, d3.zoomIdentity);
+  });
+}
+
+async function initMap(){
+  try{
+    const topo = await d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json");
+    features = topojson.feature(topo, topo.objects.countries).features;
+    features.forEach(f => {
+      const p = f.properties || {};
+      let iso = p.iso_a3 || p.ISO_A3 || p.ADM0_A3 || p.SOV_A3 || "";
+      iso = String(iso || "").toUpperCase().trim();
+      if (!iso || iso === "-99") {
+        f.id = null;
+      } else {
+        f.id = iso;
+      }
+    });
+    bindControlsMap();
+    drawMap();
+  }catch(err){
+    console.error("GeoJSON Load Error:", err);
+    gMap.append("text")
+      .text("Error loading map – check console")
+      .attr("x",50).attr("y",50).attr("fill","red");
+  }
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+  try {
+    await loadMetrics();
+  } catch(e) {
+    console.error("map_metrics.csv load error:", e);
+    metricsData = [];
+  }
+  initMap();
+});
+
+// Expose refresh when Map-Tab geöffnet wird
+window.BEV_MAP = {
+  refresh(){
+    if(features.length) drawMap();
+  }
+};
+</script>
 
 <script>
 // ===== Dev fallback so Canvas preview actually shows something =====
@@ -242,7 +596,7 @@ const SAMPLE_MANIFEST = {images:[
 ]};
 const SAMPLE_PARAMS_CSV = `country,variant,v1,v2,t0,baseline_year,data_per\n\
 Türkiye,Whole,-3.2,2.8,2027-07-01,2020,2025-08\n\
-Denmark,Whole,-4.1,3.2,2024-05-19,2018,2025-09\n\
+Denmark,whole,-4.1,3.2,2024-05-19,2018,2025-09\n\
 Singapore,Whole,-3.7,3.0,2025-09-10,2019,2025-08`;
 
 // -------- Tabs --------
@@ -359,7 +713,6 @@ function computeData(){
       if(!res || !isFinite(res.x)){
         return { text: '—', val: Infinity, title: res?.why || 'no solution' };
       }
-      // Versuche absolutes Datum zu bauen
       const dstr = yearsIndexToDate(res.x, baseDate, baseYear);
       if (dstr){
         const ts = Date.parse(dstr);
@@ -368,11 +721,9 @@ function computeData(){
         }
         return { text: dstr, val: ts, title: '' };
       }
-      // Fallback: nackte Jahreszahl sehr weit in der Zukunft
       if (res.x >= 3000){
         return { text: 'shows no transition', val: Infinity, title: 'beyond year 2999' };
       }
-      // Letzter Fallback: numerisch anzeigen, sortierbar halten
       return { text: res.x.toFixed(2), val: parseFloat(res.x), title: '' };
     }
 
@@ -409,7 +760,6 @@ function computeData(){
     <td class="num">${i+1}</td><td>${r.country}</td><td>${r.variant}</td><td>${r.val20}</td><td>${r.val50}</td><td>${r.val80}</td><td>${r.custom}</td><td>${r.data_per||''}</td>
   </tr>`).join('')}</tbody>`; }
   function renderTable(){ data=computeData(); doSort(); mount.classList.add('tablecard'); mount.innerHTML=`<table class="tablecard__table">${headerHTML()}${bodyHTML()}</table>`; mount.querySelectorAll('th.sortable').forEach(th=>{ th.classList.remove('asc','desc'); if(th.dataset.key===sortKey) th.classList.add(sortAsc?'asc':'desc'); th.onclick=()=>{ const key=th.dataset.key; if(sortKey===key) sortAsc=!sortAsc; else { sortKey=key; sortAsc=true; } renderTable(); }; }); }
-  // exports
   function escapeCsvCell(s,d){ const needs=typeof s==='string'&&(s.includes(d)||s.includes('"')||s.includes('\n')); let out=String(s??''); out=out.replace(/"/g,'""'); return needs?`"${out}"`:out; }
   function buildExportRows(){ const filtered=applyVariantFilter(data).slice(); return filtered.map((r,i)=>({rank:i+1,country:r.country,variant:r.variant,y20:r.val20,y50:r.val50,y80:r.val80,ycustom:r.custom,data_per:r.data_per||''})); }
   function download(filename,text,mime){ const blob=new Blob([text],{type:mime||'text/plain;charset=utf-8'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(url); a.remove();},0); }
@@ -451,7 +801,6 @@ function computeData(){
     </tr>`).join('')}</tbody>`; }
     function draw(){ data=computeDurations(rows); const arr=sortNow(); mount.innerHTML=`<table class="tablecard__table">${head()}${body(arr)}</table>`; mount.classList.add('tablecard'); mount.querySelectorAll('th.sortable').forEach(th=>{ th.classList.remove('asc','desc'); const k=th.dataset.k; if(k===sortKey) th.classList.add(sortAsc?'asc':'desc'); th.onclick=()=>{ if(sortKey===k) sortAsc=!sortAsc; else { sortKey=k; sortAsc=true; } draw(); }; }); }
     document.getElementById('applyDurBtn').addEventListener('click', draw); sel.addEventListener('change', draw);
-    // exports
     function escapeCsvCell(s,d){ const needs=typeof s==='string'&&(s.includes(d)||s.includes('"')||s.includes('\n')); let out=String(s??''); out=out.replace(/"/g,'""'); return needs?`"${out}"`:out; }
     function buildRows(){ return sortNow().map((r,i)=>({rank:i+1,country:r.country,variant:r.variant,d2080:r.d2080_text,d1090:r.d1090_text,dC:r.dC_text,speed:r.speed_text,data_per:r.data_per||''})); }
     function rowsToCSV(rows,d){ const header=['#','Country','Variant','20→80%','10→90%','Custom','Numerical speed','Data per']; const head=header.map(h=>escapeCsvCell(h,d)).join(d); const body=rows.map(r=>[r.rank,r.country,r.variant,r.d2080,r.d1090,r.dC,r.speed,r.data_per].map(v=>escapeCsvCell(v,d)).join(d)).join('\n'); return head+'\n'+body+'\n'; }
