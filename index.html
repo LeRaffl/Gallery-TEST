@@ -294,7 +294,7 @@ th.sortable.desc::after{content:" ↓"}
 <script src="https://unpkg.com/topojson-client@3"></script>
 <script>
 // ---- TRANSITION MAP SCRIPT ----
-const COLORS = { noTrans: "#f4a3ff", missing: "#3b4258" };
+const COLORS = { noTrans: "#f4a3ff", missing: "#151b2e" };
 const svgMap = d3.select("#map");
 const gMap = svgMap.append("g");
 const pathMap = d3.geoPath();
@@ -325,27 +325,51 @@ async function loadMetrics(){
     "./data/map_metrics.csv",
     "map_metrics.csv"
   ];
+
+  function num(...keys){
+    for (const k of keys){
+      if (k && this[k] != null && this[k] !== "") {
+        const v = +String(this[k]).replace(",", ".");
+        if (Number.isFinite(v)) return v;
+      }
+    }
+    return NaN;
+  }
+
   for (const url of candidates) {
     try {
       const r = await fetch(url, { cache: "no-store" });
       if (!r.ok) continue;
-      metricsData = await d3.csv(url, d => ({
-        iso3: (d.iso3 || "").trim().toUpperCase(),
-        country: d.country || "",
-        variant: (d.variant || "").trim().toLowerCase(),
-        y20: +d.y20,
-        y80: +d.y80,
-        dur2080: +d.dur2080,
-        speed_inflect: +d.speed_inflect,
-        status: (d.status || "").trim().toLowerCase(),
-        special_hex: (d.special_hex || "").trim()
-      }));
-      console.log("map_metrics rows:", metricsData.length);
+      const raw = await r.text();
+      const rows = d3.csvParse(raw);
+
+      metricsData = rows.map(d => {
+        const get = num.bind(d);
+        return {
+          iso3: String(
+            d.iso3 || d.iso3c || d.iso_a3 || d.ISO_A3 || d.country_code || ""
+          ).trim().toUpperCase(),
+          country: d.country || "",
+          variant: String(d.variant || "").trim().toLowerCase(),
+          y20:   get("y20","year20","y_20"),
+          y80:   get("y80","year80","y_80"),
+          dur2080: get("dur2080","dur_2080","dur20_80","dur_20_80"),
+          speed_inflect: get("speed_inflect","speed","slope_inflect"),
+          status: String(d.status || "").trim().toLowerCase(),
+          special_hex: (d.special_hex || "").trim()
+        };
+      }).filter(r => r.iso3);
+
       return;
-    } catch {}
+    } catch(e){
+      console.error("map_metrics.csv candidate failed:", url, e);
+    }
   }
+
+  console.error("map_metrics.csv not found, metricsData empty");
   metricsData = [];
 }
+
 
 
 let featuresWorld = [];
@@ -495,14 +519,15 @@ function drawMap(){
       .attr("d", pathMap)
       .attr("fill", d => {
         const row = byIso.get(d.id);
-        if(!row) return COLORS.missing;
-        if(row.special_hex) return row.special_hex;
-        if(row.status === "no_transition") return COLORS.noTrans;
+        if (!row) return COLORS.missing;
+        if (row.special_hex) return row.special_hex;
+        if (row.status === "no_transition") return COLORS.noTrans;
         const v = row[mapState.metric];
         return Number.isFinite(v) ? color(v) : COLORS.missing;
       })
+      // Grenzen deutlich anders färben
       .attr("stroke", "#3b4258")
-      .attr("stroke-width", 0.5)
+      .attr("stroke-width", 0.6);
       .on("mousemove", (ev,d) => showTooltip(ev,d,byIso))
       .on("mouseleave", hideTooltip)
       .on("click", (ev,d) => pinnedSide(d,byIso));
