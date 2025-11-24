@@ -3,23 +3,55 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BEV • Transition Map (Demo)</title>
+<title>BEV • Transition Map</title>
 <style>
   :root { --bg:#0b0c10; --fg:#e9eef2; --muted:#7f8a9a; --panel:#111624; --border:#1c2333; }
-  html,body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif}
-  header{position:sticky;top:0;z-index:5;background:#0f1117cc;backdrop-filter:saturate(120%) blur(6px);border-bottom:1px solid var(--border)}
-  header .bar{max-width:1280px;margin:0 auto;padding:10px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  html,body{
+    margin:0;
+    background:var(--bg);
+    color:var(--fg);
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif
+  }
+  header{
+    position:sticky;top:0;z-index:5;
+    background:#0f1117cc;
+    backdrop-filter:saturate(120%) blur(6px);
+    border-bottom:1px solid var(--border)
+  }
+  header .bar{
+    max-width:1280px;
+    margin:0 auto;
+    padding:10px;
+    display:flex;
+    gap:12px;
+    align-items:center;
+    flex-wrap:wrap
+  }
   header h1{margin:0 10px 0 0;font-size:18px}
-  select, label, input{font-size:14px}
   main{max-width:1280px;margin:0 auto;padding:12px}
   .wrap{display:grid;grid-template-columns:1fr 280px;gap:16px}
   .card{background:var(--panel);border:1px solid var(--border);border-radius:10px}
-  #map{aspect-ratio:16/9;width:100%}
-  .panel{padding:12px}
+  #map{
+    aspect-ratio:16/9;
+    width:100%;
+    cursor:grab;
+  }
+  #map:active{
+    cursor:grabbing;
+  }
   .legend{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px}
+  .legend .meta{margin-left:auto;font-size:12px;color:var(--muted)}
   .swatch{width:16px;height:16px;border-radius:3px;border:1px solid #0002}
-  .tooltip{position:fixed;pointer-events:none;z-index:10;background:#101521; padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:13px}
-  .nodata{fill:url(#hatch);fill-opacity:1}
+  .tooltip{
+    position:fixed;
+    pointer-events:none;
+    z-index:10;
+    background:#101521;
+    padding:8px 10px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    font-size:13px
+  }
   .muted{color:var(--muted)}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
   .note{font-size:12px;color:var(--muted)}
@@ -27,116 +59,214 @@
 </style>
 </head>
 <body>
-<header><div class="bar">
-  <h1>BEV Transition Map • Demo</h1>
-  <div class="row">
-    <label>Region
-      <select id="regionSel">
-        <option value="world" selected>Welt</option>
-        <option value="europe">Europa</option>
-      </select>
-    </label>
-    <label>Variant
+<header>
+  <div class="bar">
+    <h1>BEV Transition Map</h1>
+    <div class="row">
+      <label>Region
+        <select id="regionSel">
+          <option value="world">World</option>
+          <option value="europe" selected>Europe</option>
+        </select>
+      </label>
+      <label>Variant
       <select id="variantSel">
-        <option value="whole">Whole</option>
+        <option value="whole" selected>Whole</option>
         <option value="private">Private</option>
         <option value="industry">Industry</option>
         <option value="2w">2-Wheelers</option>
         <option value="3w">3-Wheelers</option>
         <option value="4w">4-Wheelers</option>
       </select>
-    </label>
-    <span class="row" id="metrics">
-      <label><input type="radio" name="metric" value="dur2080" checked> 20→80 Dauer</label>
-      <label><input type="radio" name="metric" value="y20"> 20%-Jahr</label>
-      <label><input type="radio" name="metric" value="y80"> 80%-Jahr</label>
-      <label><input type="radio" name="metric" value="speed_inflect"> Speed</label>
-    </span>
+      </label>
+      <span class="row" id="metrics">
+        <label><input type="radio" name="metric" value="dur2080" checked> 20→80 Dauer</label>
+        <label><input type="radio" name="metric" value="y20"> 20%-Year</label>
+        <label><input type="radio" name="metric" value="y80"> 80%-Year</label>
+        <label><input type="radio" name="metric" value="speed_inflect"> Speed</label>
+      </span>
+      <!-- Zoom Buttons -->
+      <button id="zoomIn" style="font-size:12px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:#181f2f;color:var(--fg)">+</button>
+      <button id="zoomOut" style="font-size:12px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:#181f2f;color:var(--fg)">−</button>
+      <button id="zoomReset" style="font-size:12px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:#181f2f;color:var(--fg)">Reset</button>
+    </div>
   </div>
-</div></header>
-
+</header>
 <main class="wrap">
-  <div class="card"><svg id="map"></svg></div>
-  <div class="card panel">
-    <div><strong>Legende</strong><div id="legend" class="legend"></div></div>
+  <div class="card">
+    <svg id="map"></svg>
+  </div>
+  <div class="card" style="padding:12px">
+    <div style="display:flex;align-items:center;gap:8px">
+      <strong>Legend</strong>
+      <span id="matchMeta" class="meta"></span>
+    </div>
+    <div id="legend" class="legend"></div>
     <hr style="border-color:var(--border)">
-    <div id="side" class="muted">Fahre über ein Land…</div>
+    <div id="side" class="muted">Mouse hover over a country for specifics...</div>
     <hr style="border-color:var(--border)">
-    <div class="note">Grau schraffiert = keine Daten. Rosa = no transition. „Special“ = manuell gesetzte Farbe (z. B. NOR).</div>
+    <div class="note" style="line-height:1.5">
+      Grau = keine Kartendaten<br>
+      <span style="color:#f4a3ff">Special</span> = manual coloring
+    </div>
   </div>
 </main>
-
 <div id="tt" class="tooltip" style="opacity:0"></div>
-
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-<script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
 <script>
 const files = {
-  world:  "data/world.topo.json",   // Stelle hier dein Topo mit id=ISO3 hin
-  europe: "data/europe.topo.json",
-  metrics:"data/map_metrics.csv"
+  world: "data/world.geojson",
+  europe: "data/europe.geojson",
+  metrics: "data/map_metrics.csv"  // Deine CSV – stelle sicher, dass sie da ist
 };
 
 const COLORS = {
   noTrans: "#f4a3ff",
-  missing: "url(#hatch)"
+  missing: "url(#hatch)"  // Fix: Nutze Hatch-Muster wie im Original für "keine Daten"
 };
 
 const svg = d3.select("#map");
 const g = svg.append("g");
 const path = d3.geoPath();
-const defs = svg.append("defs");
-const pat = defs.append("pattern").attr("id","hatch").attr("patternUnits","userSpaceOnUse")
-  .attr("width",6).attr("height",6).append("path")
-  .attr("d","M0,0 l6,6 M-1,1 l2,2 M5,-1 l2,2")
-  .attr("stroke","#6b7280").attr("stroke-width",1);
 
-let metricsData = [], topoCache = {};
-const state = { region: "world", variant: "whole", metric: "dur2080" };
+// Fix: Definiere Hatch-Muster für "keine Daten" (grau schraffiert)
+const defs = svg.append("defs");
+defs.append("pattern")
+  .attr("id", "hatch")
+  .attr("patternUnits", "userSpaceOnUse")
+  .attr("width", 6)
+  .attr("height", 6)
+  .append("path")
+  .attr("d", "M0,0 l6,6 M-1,1 l2,2 M5,-1 l2,2")
+  .attr("stroke", "#6b7280")
+  .attr("stroke-width", 1);
+
+// ---- ZOOM ----
+const zoom = d3.zoom()
+  .scaleExtent([1, 8])
+  .on("zoom", e => g.attr("transform", e.transform));
+
+let metricsData = [];
+let topoCache = {};
+const state = { region: "europe", variant: "whole", metric: "dur2080" };
 
 init();
 
-async function init(){
-  metricsData = await d3.csv(files.metrics, d => ({
-    iso3: d.iso3, country:d.country, variant:d.variant,
-    y20: +d.y20, y50:+d.y50, y80:+d.y80, dur2080:+d.dur2080, speed_inflect:+d.speed_inflect,
-    last_update:d.last_update, qual:d.data_quality || "ok",
-    status:(d.status||"").toLowerCase(), special_hex:d.special_hex||""
-  }));
-  await ensureTopo("world");
-  await ensureTopo("europe");
+async function init() {
+  // 1. CSV laden (iso3 muss uppercase sein)
+metricsData = await d3.csv(files.metrics, d => ({
+  iso3: String(d.iso3 || "").toUpperCase().trim(),
+  country: d.country || "",
+  variant: String(d.variant || "").toLowerCase().trim(),
+  y20: +d.y20,
+  y50: +d.y50,
+  y80: +d.y80,
+  dur2080: +d.dur2080,
+  speed_inflect: +d.speed_inflect,
+  last_update: d.last_update || "",
+  status: (d.status || "").toLowerCase(),
+  special_hex: d.special_hex || ""
+}));
+  
+  // 2. GeoJSON laden
+  await ensureGeo("world");
+  await ensureGeo("europe");
+  
+  // 3. UI binden
+  state.variant = document.getElementById("variantSel").value.toLowerCase();
+  state.region = document.getElementById("regionSel").value;
   bindControls();
+  
+  // 4. Zoom aktivieren
+  svg.call(zoom);
+  
+  // 5. Erste Karte zeichnen
   draw();
+  
+  // Fix: Bei Fenster-Resize neu zeichnen (sonst leer bei Größenänderung)
+  window.addEventListener("resize", () => { fitSVG(); draw(); });
 }
 
-function bindControls(){
+function bindControls() {
   d3.select("#regionSel").on("change", e => { state.region = e.target.value; draw(); });
   d3.select("#variantSel").on("change", e => { state.variant = e.target.value; draw(); });
   d3.selectAll('input[name="metric"]').on("change", e => { state.metric = e.target.value; draw(); });
+  d3.select("#zoomIn").on("click", () => svg.transition().duration(200).call(zoom.scaleBy, 1.4));
+  d3.select("#zoomOut").on("click", () => svg.transition().duration(200).call(zoom.scaleBy, 1 / 1.4));
+  d3.select("#zoomReset").on("click", () => svg.transition().duration(200).call(zoom.transform, d3.zoomIdentity));
 }
 
-async function ensureTopo(key){
+async function ensureGeo(key) {
   if (topoCache[key]) return;
-  const tj = await d3.json(files[key]);
-  const feats = topojson.feature(tj, tj.objects[Object.keys(tj.objects)[0]]);
-  topoCache[key] = feats;
+  const fc = await d3.json(files[key]);
+
+  topoCache[key] = {
+    type: "FeatureCollection",
+    features: (fc.features || [])
+      .map(f => {
+        const p = f.properties || {};
+
+        // Das hier ist der entscheidende Fix!
+        let id = p.ADM0_A3 || p.ISO_A3 || p.iso_a3 || p.ISO3 || p.ADMIN || p.id || "";
+        if (!id || id === "-99" || id === "ATA") return null; // Antarktis raus
+
+        f.id = String(id).trim().toUpperCase(); // ← hier wird f.id gesetzt!
+        return f;
+      })
+      .filter(Boolean)
+  };
 }
 
-function draw(){
-  const feats = topoCache[state.region];
-  const {width, height} = fitSVG();
-  const proj = d3.geoMercator().fitSize([width, height], feats);
+function draw() {
+  const featsAll = topoCache[state.region];
+  if (!featsAll || !featsAll.features.length) {
+    console.warn("Keine Geo-Daten für:", state.region);  // Hilft beim Debuggen
+    return;
+  }
+
+  // Antarktis filtern (nur für World)
+  let featsToDraw = featsAll;
+  if (state.region === "world") {
+    const filtered = featsAll.features.filter(f => {
+      const c = d3.geoCentroid(f);
+      return c[1] > -58;  // Entfernt Antarktis
+    });
+    featsToDraw = { type: "FeatureCollection", features: filtered };
+  }
+
+  const { width, height } = fitSVG();
+
+  // Projektion anpassen (für Europe besser zentriert)
+  let proj;
+if (state.region === "europe") {
+  proj = d3.geoMercator()
+    .center([15, 54])        // Besser zentriert als [10,55]
+    .scale(width * 3.0)      // Etwas größer → Länder füllen die Karte besser aus
+    .translate([width / 2, height / 2]);
+} else {
+    proj = d3.geoMercator().fitSize([width, height], featsToDraw);
+  }
   path.projection(proj);
 
+  // Daten matchen (CSV zu GeoJSON)
   const rows = metricsData.filter(d => d.variant === state.variant);
   const byIso = new Map(rows.map(d => [d.iso3, d]));
+  const total = featsToDraw.features.length;
+  const matched = featsToDraw.features.filter(f => byIso.has(f.id)).length;
+  document.getElementById("matchMeta").textContent = `(${matched}/${total} matched)`;
 
-  const values = feats.features.map(f => byIso.get(f.id)?.[state.metric]).filter(Number.isFinite);
+  // Farbskala (deine RdYlGn behalten, oder ändere zu interpolateTurbo für mehr Farbe)
+  const values = featsToDraw.features
+    .map(f => byIso.get(f.id)?.[state.metric])
+    .filter(Number.isFinite);
   const domain = computeDomain(values, state.metric);
   const color = colorScale(domain, state.metric);
 
-  g.selectAll("path.country").data(feats.features, d=>d.id).join("path")
-    .attr("class","country")
+  // Länder zeichnen
+  g.selectAll("path.country")
+    .data(featsToDraw.features, d => d.id)
+    .join("path")
+    .attr("class", "country")
     .attr("d", path)
     .attr("fill", d => {
       const row = byIso.get(d.id);
@@ -145,119 +275,109 @@ function draw(){
       if (row.status === "special" && row.special_hex) return row.special_hex;
       const v = row[state.metric];
       if (!Number.isFinite(v)) return COLORS.missing;
-      const [lo,hi] = domain;
-      const vv = Math.max(Math.min(v, hi), lo);
-      return color(vv);
+      return color(Math.max(Math.min(v, domain[1]), domain[0]));  // Clamp Wert
     })
-    .attr("stroke","#111821")
-    .attr("stroke-width", d => {
-      const row = byIso.get(d.id);
-      if (!row) return 0.5;
-      const v = row[state.metric];
-      if (!Number.isFinite(v)) return 0.5;
-      return (v < domain[0] || v > domain[1]) ? 1.8 : 0.5;
-    })
-    .on("mousemove", (ev,d) => showTooltip(ev,d,byIso))
+    .attr("stroke", "#3b4258")
+    .attr("stroke-width", 0.5)
+    .on("mousemove", (ev, d) => showTooltip(ev, d, byIso))
     .on("mouseleave", hideTooltip)
-    .on("click", (ev,d) => pinnedSide(d,byIso,domain,color));
+    .on("click", (ev, d) => pinnedSide(d, byIso));
 
   drawLegend(color, domain, state.metric);
 }
 
-function fitSVG(){
-  const bbox = svg.node().getBoundingClientRect();
-  const w = bbox.width || 900, h = Math.max(360, w*9/16);
+function fitSVG() {
+  const box = svg.node().getBoundingClientRect();
+  const w = box.width, h = Math.max(360, w * 9 / 16);
   svg.attr("width", w).attr("height", h);
-  return {width:w, height:h};
+  return { width: w, height: h };
 }
 
-function computeDomain(values, metric){
-  const v = values.slice().sort((a,b)=>a-b);
-  if (!v.length) return [0,1];
+function computeDomain(v, metric) {
+  if (!v.length) return [0, 1];
+  v = v.slice().sort((a, b) => a - b);
   if (metric === "dur2080" || metric === "speed_inflect") {
-    const lo = quantile(v, 0.05), hi = quantile(v, 0.95);
-    return [lo, hi];
-  } else {
-    const lo = Math.floor(Math.min(...v));
-    const hi = Math.ceil(Math.max(...v));
-    return [lo, hi];
+    return [v[Math.floor(v.length * 0.05)], v[Math.floor(v.length * 0.95)]];
   }
+  return [Math.floor(v[0]), Math.ceil(v[v.length - 1])];
 }
 
-function colorScale([lo,hi], metric){
-  if (metric === "dur2080") {
-    return d3.scaleSequential().domain([hi, lo]).interpolator(d3.interpolateTurbo);
-  } else if (metric === "speed_inflect") {
-    return d3.scaleSequential().domain([lo, hi]).interpolator(d3.interpolatePlasma);
-  } else {
-    return d3.scaleSequential().domain([lo, hi]).interpolator(d3.interpolateViridis);
-  }
+function colorScale([lo, hi], metric) {
+  if (metric === "dur2080") return d3.scaleSequential().domain([hi, lo]).interpolator(d3.interpolateRdYlGn);  // Deine Farbe
+  if (metric === "speed_inflect") return d3.scaleSequential().domain([lo, hi]).interpolator(d3.interpolatePlasma);
+  return d3.scaleSequential().domain([lo, hi]).interpolator(d3.interpolateViridis);
 }
 
-function drawLegend(scale, [lo,hi], metric){
+function drawLegend(scale, [lo, hi], metric) {
   const steps = 6;
-  const L = d3.range(steps).map(i => d3.interpolateNumber(lo,hi)(i/(steps-1)));
-  const fmt = (x)=> metric.startsWith("y") ? Math.round(x) : niceNum(x);
-  const unit = metric==="dur2080" ? "Jahre" : (metric==="speed_inflect" ? "Speed" : "");
-
+  const L = d3.range(steps).map(i => lo + (hi - lo) * (i / (steps - 1)));  // Fix: Besser verteilt
+  const fmt = (x) => metric.startsWith("y") ? Math.round(x) : x.toFixed(1);  // Fix: Runden
+  const unit = metric === "dur2080" ? "Years" : metric === "speed_inflect" ? "Speed" : "";
   const box = d3.select("#legend").html("");
-  L.forEach(v=>{
+  L.forEach(v => {
     const sw = document.createElement("div");
-    sw.className="swatch"; sw.style.background = scale(v);
+    sw.className = "swatch";
+    sw.style.background = scale(v);
     box.node().appendChild(sw);
   });
   const labels = document.createElement("div");
-  labels.style.width="100%"; labels.style.display="flex"; labels.style.justifyContent="space-between";
+  labels.style.width = "100%";
+  labels.style.display = "flex";
+  labels.style.justifyContent = "space-between";
   labels.innerHTML = `<span>${fmt(lo)}</span><span class="muted">${unit}</span><span>${fmt(hi)}</span>`;
   box.node().appendChild(labels);
-
   const extra = document.createElement("div");
   extra.style.marginTop = "6px";
   extra.innerHTML = `<span class="swatch" style="background:${COLORS.noTrans}"></span> no transition`;
   box.node().appendChild(extra);
 }
 
-function showTooltip(ev, feat, byIso){
+function showTooltip(ev, feat, byIso) {
   const row = byIso.get(feat.id);
+  if (!row) return hideTooltip();
   const tt = d3.select("#tt");
-  if (!row){ hideTooltip(); return; }
-  const html = `
+  const fmt = (v) => Number.isFinite(v) ? Math.round(v * 10) / 10 : "—";  // Fix: Schöne Zahlen
+  tt.html(`
     <div><strong>${row.country}</strong> <span class="muted">(${feat.id})</span></div>
-    <div class="muted">Variant: ${row.variant} • Status: ${row.status||"ok"}</div>
-    ${row.status==="no_transition" ? "<em>No noteworthy transition</em>" : `
-    <div>20→80 Dauer: <strong>${printVal(row.dur2080,"J")}</strong></div>
-    <div>20%-Jahr: <strong>${printVal(row.y20,"")}</strong> • 80%-Jahr: <strong>${printVal(row.y80,"")}</strong></div>
-    <div>Speed: <strong>${printVal(row.speed_inflect,"")}</strong></div>`}
-  `;
-  tt.html(html).style("opacity",1)
-    .style("left",(ev.clientX+12)+"px")
-    .style("top",(ev.clientY+12)+"px");
+    <div class="muted">Variant: ${row.variant} • Status: ${row.status || "ok"}</div>
+    ${row.status === "no_transition"
+      ? "<em>No noteworthy transition</em>"
+      : `<div>20→80: <strong>${fmt(row.dur2080)}</strong></div>
+         <div>20%: <strong>${fmt(row.y20)}</strong> • 80%: <strong>${fmt(row.y80)}</strong></div>
+         <div>Speed: <strong>${fmt(row.speed_inflect)}</strong></div>`
+    }
+  `)
+    .style("opacity", 1)
+    .style("left", (ev.clientX + 12) + "px")
+    .style("top", (ev.clientY + 12) + "px");
 }
-function hideTooltip(){ d3.select("#tt").style("opacity",0); }
 
-function pinnedSide(feat, byIso){
+function hideTooltip() {
+  d3.select("#tt").style("opacity", 0);
+}
+
+function pinnedSide(feat, byIso) {
   const row = byIso.get(feat.id);
-  if (!row){ d3.select("#side").text("Keine Daten."); return; }
-  d3.select("#side").html(`
+  if (!row) {
+    document.getElementById("side").textContent = "Keine Daten";
+    return;
+  }
+  const fmt = (v) => Number.isFinite(v) ? Math.round(v * 10) / 10 : "—";  // Fix: Schöne Zahlen
+  document.getElementById("side").innerHTML = `
     <div><strong>${row.country}</strong> <span class="muted">(${feat.id})</span></div>
-    <div class="muted">Variant: ${row.variant}; Update: ${row.last_update||"—"}</div>
-    ${row.status==="no_transition" ? "<p><em>No noteworthy transition</em></p>" : `
-    <ul>
-      <li>20→80 Dauer: <strong>${printVal(row.dur2080,"J")}</strong></li>
-      <li>20%-Jahr: <strong>${printVal(row.y20,"")}</strong></li>
-      <li>80%-Jahr: <strong>${printVal(row.y80,"")}</strong></li>
-      <li>Speed (Wendetangente): <strong>${printVal(row.speed_inflect,"")}</strong></li>
-    </ul>`}
-  `);
+    <div class="muted">Variant: ${row.variant}; Update: ${row.last_update}</div>
+    ${row.status === "no_transition"
+      ? "<p><em>No noteworthy transition</em></p>"
+      : `
+      <ul>
+        <li>20→80: <strong>${fmt(row.dur2080)}</strong></li>
+        <li>20%-Year: <strong>${fmt(row.y20)}</strong></li>
+        <li>80%-Year: <strong>${fmt(row.y80)}</strong></li>
+        <li>Speed: <strong>${fmt(row.speed_inflect)}</strong></li>
+      </ul>`
+    }
+  `;
 }
-
-function quantile(a, p){
-  const i = (a.length-1)*p, i0 = Math.floor(i), i1 = Math.ceil(i);
-  if (i0===i1) return a[i0];
-  return a[i0] + (a[i1]-a[i0])*(i - i0);
-}
-function niceNum(x){ return Number.isFinite(x) ? (Math.round(x*10)/10) : "—"; }
-function printVal(v, suf){ return Number.isFinite(v) ? `${niceNum(v)}${suf}` : "—"; }
 </script>
 </body>
 </html>
