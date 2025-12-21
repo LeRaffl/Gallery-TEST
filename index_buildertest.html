@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BEV Trajectories • Builder Test</title>
+
+<script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+
+<style>
+body { background:#0b0f1a; color:#e6e9f0; font-family:system-ui,-apple-system,BlinkMacSystemFont; }
+.container { max-width:1100px; margin:20px auto; padding:10px; }
+.toolbar { display:flex; gap:16px; align-items:flex-end; }
+.field label { display:block; font-size:12px; opacity:.8; margin-bottom:4px; }
+select { background:#11182a; color:#fff; border:1px solid #2a3553; border-radius:6px; padding:6px; }
+button { background:#2a5bd7; color:#fff; border:0; padding:8px 14px; border-radius:6px; cursor:pointer; }
+.tablecard { background:#0f1628; border-radius:12px; margin-top:16px; }
+.small { font-size:12px; opacity:.8; }
+</style>
+</head>
+
+<body>
+<div class="container">
+  <h2>Region / World Curve Builder</h2>
+
+  <div class="toolbar">
+    <div class="field" style="min-width:280px">
+      <label>Countries (multi-select)</label>
+      <select id="builderCountries" multiple size="8"></select>
+    </div>
+    <div class="field">
+      <label>&nbsp;</label>
+      <button id="buildCurve">Build curve</button>
+    </div>
+  </div>
+
+  <p class="small">
+    Curve is computed client-side as a weighted sum of country trajectories.
+    Weights are taken from <code>weights.csv</code>.
+  </p>
+
+  <div class="tablecard">
+    <div id="builderPlot" style="height:420px"></div>
+  </div>
+</div>
+
+<script>
+const DEV_SAMPLE = true;
+
+const SAMPLE_PARAMS_CSV = `country,variant,v1,v2,t0
+Germany,Whole,-0.08,1.9,2020
+France,Whole,-0.09,2.0,2021
+Norway,Whole,-0.12,1.6,2018
+`;
+
+function parseCSV(txt){
+  const [h,...rows]=txt.trim().split(/\r?\n/);
+  const cols=h.split(',');
+  return rows.map(r=>{
+    const o={};
+    r.split(',').forEach((v,i)=>o[cols[i]]=v);
+    return o;
+  });
+}
+
+function normNumber(x){
+  const v=parseFloat(x);
+  return isFinite(v)?v:NaN;
+}
+
+function normalizeBase(x){
+  return (x||'').toLowerCase().trim();
+}
+
+function getT0Years(r){
+  return normNumber(r.t0)||0;
+}
+
+function bevShare(x,a,b){
+  if(!isFinite(x)||!isFinite(a)||!isFinite(b)) return 0;
+  if(a>=0||b<=0) return 0;
+  return 1-Math.exp(a*Math.pow(x,b));
+}
+
+async function initBuilder(){
+  const params = DEV_SAMPLE ? parseCSV(SAMPLE_PARAMS_CSV) : [];
+  const wMap = { Germany:3.2, France:2.4, Norway:0.3 };
+
+  const sel=document.getElementById('builderCountries');
+  [...new Set(params.map(p=>p.country))].forEach(c=>{
+    const o=document.createElement('option');
+    o.value=c; o.textContent=c;
+    sel.appendChild(o);
+  });
+
+  document.getElementById('buildCurve').onclick=()=>{
+    const chosen=[...sel.selectedOptions].map(o=>o.value);
+    if(!chosen.length) return;
+
+    const rows=params.filter(p=>chosen.includes(p.country)&&normalizeBase(p.variant)==='whole');
+    const wsum=rows.reduce((s,r)=>s+(wMap[r.country]||0),0);
+    if(wsum<=0){ alert('weights missing'); return; }
+
+    const xs=[],ys=[];
+    for(let x=0;x<=30;x+=0.1){
+      let y=0;
+      rows.forEach(r=>{
+        const w=(wMap[r.country]||0)/wsum;
+        const xEff=x-(getT0Years(r)-1);
+        y+=w*bevShare(xEff,normNumber(r.v1),normNumber(r.v2));
+      });
+      xs.push(x); ys.push(100*y);
+    }
+
+    Plotly.newPlot('builderPlot',[{x:xs,y:ys,mode:'lines'}],{
+      yaxis:{range:[0,100],title:'BEV share (%)'},
+      xaxis:{title:'Years since baseline'},
+      margin:{t:20}
+    });
+  };
+}
+
+document.addEventListener('DOMContentLoaded',initBuilder);
+</script>
+</body>
+</html>
