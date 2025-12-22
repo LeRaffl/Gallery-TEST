@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BEV Curve Builder – CSV driven</title>
+
+<script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+
+<style>
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;
+  background:#0b0c10;
+  color:#e9eef2;
+}
+.container{
+  max-width:1100px;
+  margin:20px auto;
+  padding:0 16px;
+}
+.toolbar{
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+  align-items:end;
+}
+.field{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+select,button{
+  background:#0f1525;
+  color:#e9eef2;
+  border:1px solid #1f2a44;
+  border-radius:10px;
+  padding:10px 12px;
+}
+button{ cursor:pointer; }
+.card{
+  margin-top:16px;
+  background:#0f1525;
+  border:1px solid #1f2a44;
+  border-radius:14px;
+  padding:12px;
+}
+.small{ font-size:12px; opacity:.8; }
+</style>
+</head>
+
+<body>
+<div class="container">
+  <h2>Region / World Curve Builder</h2>
+
+  <div class="toolbar">
+    <div class="field" style="min-width:260px">
+      <label>Countries (multi-select)</label>
+      <select id="countries" multiple size="10"></select>
+    </div>
+    <div class="field">
+      <label>&nbsp;</label>
+      <button id="build">Build curve</button>
+    </div>
+  </div>
+
+  <p class="small">
+    Aggregated curve = ∑ wᵢ · (1 − exp(v1ᵢ · (t − (t0ᵢ − 1))^{v2ᵢ}))  
+    <br/>Time axis: calendar years 2010–2050.
+  </p>
+
+  <div class="card">
+    <div id="plot" style="height:440px"></div>
+  </div>
+</div>
+
+<script>
+const YEAR_START = 2010;
+const YEAR_END   = 2050;
+
+/* ---------- helpers ---------- */
+function parseCSV(text){
+  const lines=text.trim().split(/\r?\n/);
+  const header=lines.shift().split(/[,;]/).map(h=>h.trim());
+  return lines.map(l=>{
+    const cols=l.split(/[,;]/);
+    const o={};
+    header.forEach((h,i)=>o[h]=cols[i]);
+    return o;
+  });
+}
+const num = x => Number(String(x).replace(",", "."));
+
+/* Weibull-style share */
+function bevShare(t,v1,v2,t0){
+  const x = t - (t0 - 1);
+  if(x <= 0) return 0;
+  return 1 - Math.exp(v1 * Math.pow(x, v2));
+}
+
+/* ---------- load CSVs ---------- */
+async function loadData(){
+  const paramsTxt  = await fetch("params.csv",{cache:"no-store"}).then(r=>r.text());
+  const weightsTxt = await fetch("weights.csv",{cache:"no-store"}).then(r=>r.text());
+
+  const params = parseCSV(paramsTxt)
+    .map(r=>({
+      country:r.country,
+      v1:num(r.v1),
+      v2:num(r.v2),
+      t0: r.t0.includes("-")
+        ? Number(r.t0.slice(0,4))   // ISO date → year
+        : num(r.t0)
+    }));
+
+  const weights = {};
+  parseCSV(weightsTxt).forEach(r=>{
+    weights[r.country] = num(r.market_size ?? r.weight ?? 1);
+  });
+
+  return {params, weights};
+}
+
+/* ---------- init ---------- */
+let PARAMS=[], WEIGHTS={};
+
+const sel = document.getElementById("countries");
+
+loadData().then(({params,weights})=>{
+  PARAMS=params;
+  WEIGHTS=weights;
+
+  [...new Set(params.map(p=>p.country))]
+    .sort()
+    .forEach(c=>{
+      const o=document.createElement("option");
+      o.value=c;
+      o.textContent=c;
+      sel.appendChild(o);
+    });
+});
+
+/* ---------- build curve ---------- */
+document.getElementById("build").onclick = () => {
+  const chosen=[...sel.selectedOptions].map(o=>o.value);
+  if(!chosen.length) return;
+
+  const rows = PARAMS.filter(r=>chosen.includes(r.country));
+  const wRaw = rows.map(r => WEIGHTS[r.country] ?? 1);
+  const wSum = wRaw.reduce((a,b)=>a+b,0);
+
+  const xs=[], ys=[];
+  for(let year=YEAR_START; year<=YEAR_END; year+=1/12){
+    let y=0;
+    rows.forEach((r,i)=>{
+      y += (wRaw[i]/wSum) * bevShare(year, r.v1, r.v2, r.t0);
+    });
+    xs.push(year);
+    ys.push(100*y);
+  }
+
+  Plotly.newPlot("plot",[{
+    x:xs,
+    y:ys,
+    mode:"lines",
+    name:"Aggregated",
+    hovertemplate:"Year %{x:.2f}<br>%{y:.1f}%<extra></extra>"
+  }],{
+    xaxis:{title:"Calendar year", range:[YEAR_START,YEAR_END]},
+    yaxis:{title:"BEV share (%)", range:[0,100]},
+    margin:{t:20}
+  });
+};
+</script>
+</body>
+</html>

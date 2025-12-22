@@ -239,35 +239,6 @@ th.sortable.desc::after{content:" ↓"}
           <label>Countries (multi‑select)</label>
           <select id="builderCountries" multiple size="8"></select>
         </div>
-
-        <div class="field" style="min-width:260px">
-          <label>Quick groups</label>
-            <select id="builderGroups">
-              <option value="">— select group —</option>
-
-              <option value="world">World</option>
-
-              <optgroup label="Europe">
-                <option value="western_europe">Western Europe</option>
-                <option value="northern_europe">Northern Europe</option>
-                <option value="southern_europe">Southern Europe</option>
-                <option value="eastern_europe">Eastern Europe</option>
-                <option value="eu">EU</option>
-              </optgroup>
-
-              <optgroup label="Americas">
-                <option value="north_america">North America</option>
-                <option value="south_america">South America</option>
-                <option value="americas">Americas (all)</option>
-              </optgroup>
-
-              <optgroup label="Global">
-                <option value="g7">G7</option>
-                <option value="asia">Asia</option>
-              </optgroup>
-            </select>
-        </div>
-
         <div class="field">
           <label>Build</label>
           <button id="buildCurve" class="btn">Build curve</button>
@@ -385,13 +356,7 @@ function yearsIndexToDate(xYears, baseline_date, baseline_year){ if(!isFinite(xY
 function inv_x_years(y,v1,v2,t0){ const v1n=normNumber(v1), v2n=normNumber(v2), t0n=normNumber(t0); if(!(y>0&&y<1))return{x:NaN,why:'y∉(0,1)'}; if(!isFinite(v1n)||!isFinite(v2n)||!isFinite(t0n))return{x:NaN,why:'v1/v2/t0 not numeric'}; if(v2n===0)return{x:NaN,why:'v2=0'}; if(v1n>=0)return{x:NaN,why:'v1 must be < 0'}; const num=Math.log(1-y)/v1n; if(!(num>0))return{x:NaN,why:'ln(1-y)/v1 ≤ 0'}; return{x:(t0n-1)+Math.pow(num,1/v2n),why:null}; }
 function getT0Years(r){ const baseDate=r.baseline_date||'', baseYear=normNumber(r.baseline_year), t0raw=(r.t0||'').trim(); let t0n=normNumber(t0raw); if(isFinite(t0n)&&t0n>=1800&&(isFinite(baseYear)||/^\d{4}-\d{2}-\d{2}$/.test(baseDate))){ const by=isFinite(baseYear)?Math.round(baseYear):(new Date(baseDate+'T00:00:00Z')).getUTCFullYear(); return (t0n-by)+1; } if(/^\d{4}-\d{2}-\d{2}$/.test(t0raw)){ const t0yf=isoDateToYearFrac(t0raw); const by=isFinite(baseYear)?baseYear:isoDateToYearFrac(baseDate); if(isFinite(by)&&isFinite(t0yf)) return (t0yf-by)+1; } return t0n; }
 function getDataPer(r){ const c=[r.data_per,r.latest_month,r.last_month,r.month_latest,r.data_month,r.latest_date,r.last_date,r.obs_last,r.data_asof].map(x=>String(x||'').trim()).filter(Boolean); for(const v of c){ const m=toYYYYMM(v); if(m) return m; } return ''; }
-function extractVariantParts(variant){
-  const base = String(variant || '').trim();
-  return {
-    base,
-    attrs: []
-  };
-}
+function extractVariantParts(variant){ const v=String(variant||''); const base=v.replace(/\s*\([^)]*\)\s*$/, '').trim(); const paren=(v.match(/\(([^)]*)\)/)||[])[1]||''; const attrs=new Set(); paren.split(/[,;|/]/).map(s=>s.trim()).filter(Boolean).forEach(x=>attrs.add(x)); return { base, attrs:[...attrs] }; }
 
 // -------- THRESHOLDS --------
 document.addEventListener('DOMContentLoaded',()=>{ const urls=['./params.csv','params.csv']; (function next(i){ if(i>=urls.length){ if(DEV_SAMPLE){ renderThresholds(SAMPLE_PARAMS_CSV); return;} showFatal('Could not load params.csv.'); return;} fetch(urls[i],{cache:'no-store'}).then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.text();}).then(txt=>renderThresholds(txt)).catch(()=>next(i+1)); })(0); });
@@ -544,12 +509,9 @@ function computeData(){
   }
 
   // Weibull-style share in INDEX TIME (years since baseline, with x=1 at baseline year)
-  function bevShareIndex(x, v1, v2, t0){
-    // x is INDEX TIME: x = calendar_year - baseline_year + 1
-    if (x <= 0) return 0;
-    const z = x - t0;
-    if (z <= 0) return 0;
-    return 1 - Math.exp(v1 * Math.pow(z, v2));
+  function bevShareIndex(x,v1,v2,t0){
+    if(x<=0) return 0;
+    return 1 - Math.exp(v1 * Math.pow(x, v2));
   }
 
   // Convert numeric calendar year to YYYY-MM label (for tooltip only)
@@ -585,73 +547,8 @@ function computeData(){
     });
   }
 
-  
-    // --- Predefined country groupings (Builder only) ---
-const BUILDER_GROUPS = {
-  world: rows =>
-    [...new Set(rows.map(r => r.country).filter(Boolean))],
-  // ---- EUROPE ----
-  western_europe: rows => [
-    'Austria','Belgium','France','Germany','Netherlands',
-    'Luxembourg','Switzerland','Ireland','United Kingdom'
-  ],
-  northern_europe: rows => [
-    'Norway','Sweden','Denmark','Finland','Iceland'
-  ],
-  southern_europe: rows => [
-    'Spain','Portugal','Italy','Greece','Malta','Cyprus'
-  ],
-  eastern_europe: rows => [
-    'Poland','Czechia','Slovakia','Hungary','Romania',
-    'Bulgaria','Croatia','Slovenia','Latvia','Lithuania','Estonia'
-  ],
-  eu: rows => [
-    'Austria','Belgium','Bulgaria','Croatia','Cyprus','Czechia','Denmark',
-    'Estonia','Finland','France','Germany','Greece','Hungary','Ireland',
-    'Italy','Latvia','Lithuania','Luxembourg','Malta','Netherlands',
-    'Poland','Portugal','Romania','Slovakia','Slovenia','Spain','Sweden'
-  ],
-  // ---- G7 ----
-  g7: rows => [
-    'United States','Canada','Japan',
-    'Germany','France','United Kingdom','Italy'
-  ],
-  // ---- AMERICAS ----
-  north_america: rows => [
-    'United States','Canada','Mexico'
-  ],
-  south_america: rows => [
-    'Brazil','Argentina','Chile','Colombia',
-    'Peru','Uruguay'
-  ],
-  americas: rows => [
-    'United States','Canada','Mexico',
-    'Brazil','Argentina','Chile','Colombia',
-    'Peru','Uruguay'
-  ],
-  // ---- ASIA ----
-  asia: rows => [
-    'China','Japan','South Korea','India',
-    'Thailand','Malaysia','Indonesia',
-    'Vietnam','Philippines','Singapore','Taiwan'
-  ]
-};
-
-
-
-
-    function applyBuilderGroup(key){
-      const sel = document.getElementById('builderCountries');
-      if(!BUILDER_GROUPS[key]) return;
-      const wanted = new Set(BUILDER_GROUPS[key](PARAM_ROWS));
-      [...sel.options].forEach(o => o.selected = wanted.has(o.value));
-    }
-
-
   function initBuilder(rows){
     PARAM_ROWS = rows;
-    const groupSel = document.getElementById('builderGroups');
-    if(groupSel){ groupSel.onchange = e => applyBuilderGroup(e.target.value); }
     const sel = document.getElementById('builderCountries');
     sel.innerHTML = '';
     const countries = [...new Set(rows.map(r=>r.country).filter(Boolean))].sort();
@@ -668,11 +565,7 @@ const BUILDER_GROUPS = {
     if(!chosen.length) return;
 
     // Filter to selected rows (all variants present in params.csv; you can later add a variant filter)
-    const rows = PARAM_ROWS.filter(r =>
-      chosen.includes(r.country) &&
-      ['whole', '4-wheelers'].includes(normalizeBase(r.variant))
-    );
-
+    const rows = PARAM_ROWS.filter(r=>chosen.includes(r.country));
 
     // Simple equal weights for now (consistent + stable). Market-size weights can be added later.
     const w = 1 / rows.length;
@@ -691,7 +584,7 @@ const BUILDER_GROUPS = {
           return; // skip malformed rows instead of poisoning whole curve
         }
 
-        const x = year - by + 1; // index time aligned to baseline + t0            // KEY: calendar year -> index time
+        const x = year - by + 1;            // KEY: calendar year -> index time
         y += w * bevShareIndex(x, v1, v2, t0);
       });
 
