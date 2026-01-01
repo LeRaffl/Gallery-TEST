@@ -19,6 +19,19 @@ header h1{margin:0;font-size:20px;font-weight:700}
 .tab{display:none}
 .tab.active{display:block}
 
+  /* Threshold coloring */
+td.past {
+  background: rgba(60, 180, 120, 0.18);
+  color: #bff5d8;
+  font-weight: 600;
+}
+
+td.late {
+  background: rgba(220, 80, 80, 0.18);
+  color: #ffb4b4;
+  font-weight: 600;
+}
+
 /* Gallery layout */
 .page{max-width:var(--maxw);margin:14px auto;display:grid;grid-template-columns:260px 1fr;gap:18px;padding:0 10px}
 @media (max-width:880px){.page{grid-template-columns:1fr}}
@@ -198,7 +211,16 @@ th.sortable.desc::after{content:" ↓"}
           </div>
         </div>
       </div>
-      <p class="small" style="max-width:740px">Choose a custom threshold, then sort the table. Use the variant filter to include multiple categories. Default selects “Whole”. Exports reflect your current filter and custom setting.</p>
+      <p class="small" style="max-width:740px">
+        Choose a custom threshold, then sort the table. Use the variant filter to include multiple categories. Default selects “Whole”.
+        Exports reflect your current filter and custom setting.<br>
+        <span style="opacity:0.85">
+          Color coding:
+          <span style="color:#7fe0b0;font-weight:600">green</span> = threshold already reached;
+          <span style="color:#ff9a9a;font-weight:600">red</span> = 80% threshold after Jan 2035.
+        </span>
+      </p>
+
     </div>
     <div class="container tablepad">
       <div id="thresholdsMount" class="tablecard"><div style="padding:14px">Loading <code>params.csv</code>…</div></div>
@@ -274,13 +296,20 @@ th.sortable.desc::after{content:" ↓"}
         </div>
       </div>
       <p class="small">
-        Internally uses <b>index time (years since baseline)</b> — identical to Thresholds/Durations.
-        Axis labels are rendered as calendar year + month.
+        Internally uses <b>index time (years since baseline)</b> — Rounding Errors must be expected in this graph.
+        
+      </p>
+      <p class="small">
+      This Tab can stack Transition Curves for countries. You can choose pre set groups or select your own.
+      </p>      
+      <p class="small">
+        Transition Curves are weighed by market size of the country given in weights.csv, where the 1 year market sizes are approximately set. Market sizes do not fluctuate enough to require monthly updates of weights.csv
       </p>
       <div class="card" style="margin-top:12px">
         <div id="builderPlot"></div>
       </div>
     </div>
+    <div id="builderDebug" class="small" style="margin-top:10px;opacity:.85"></div>
   </section>
 
 <script>
@@ -404,7 +433,7 @@ function renderThresholds(csvText){ try{ const rows=parseCSV(csvText); const mou
 function computeData(){
   const pct = Math.max(1, Math.min(99, Number(customPctEl.value) || 90));
   const y = pct / 100;
-  const MAX_TS = Date.parse('2999-12-31');
+  const MAX_TS = Date.parse('2199-12-31');
 
   return rows.map(r => {
     const v1 = normNumber(r.v1),
@@ -427,13 +456,13 @@ function computeData(){
       if (dstr){
         const ts = Date.parse(dstr);
         if (isFinite(ts) && ts > MAX_TS){
-          return { text: 'shows no transition', val: Infinity, title: 'beyond 2999-12-31' };
+          return { text: 'shows no transition', val: Infinity, title: 'beyond 2199-12-31' };
         }
         return { text: dstr, val: ts, title: '' };
       }
       // Fallback: nackte Jahreszahl sehr weit in der Zukunft
       if (res.x >= 3000){
-        return { text: 'shows no transition', val: Infinity, title: 'beyond year 2999' };
+        return { text: 'shows no transition', val: Infinity, title: 'beyond year 2199' };
       }
       // Letzter Fallback: numerisch anzeigen, sortierbar halten
       return { text: res.x.toFixed(2), val: parseFloat(res.x), title: '' };
@@ -468,9 +497,35 @@ function computeData(){
     <th class="sortable" data-key="custom">Custom</th>
     <th class="sortable" data-key="data_per">Data per</th>
   </tr></thead>`; }
-  function bodyHTML(){ const filtered=applyVariantFilter(data); return `<tbody>${filtered.map((r,i)=>`<tr>
-    <td class="num">${i+1}</td><td>${r.country}</td><td>${r.variant}</td><td>${r.val20}</td><td>${r.val50}</td><td>${r.val80}</td><td>${r.custom}</td><td>${r.data_per||''}</td>
-  </tr>`).join('')}</tbody>`; }
+                                        
+  const TODAY_TS = Date.now();
+const RED_80_TS = Date.parse('2035-01-01');
+
+function tdWithClass(text, ts, is80 = false) {
+  let cls = '';
+  if (isFinite(ts)) {
+    if (ts < TODAY_TS) cls = 'past';
+    if (is80 && ts > RED_80_TS) cls = 'late';
+  }
+  return `<td class="${cls}">${text}</td>`;
+}
+
+
+function bodyHTML(){
+  const filtered = applyVariantFilter(data);
+  return `<tbody>${filtered.map((r,i)=>`<tr>
+    <td class="num">${i+1}</td>
+    <td>${r.country}</td>
+    <td>${r.variant}</td>
+    ${tdWithClass(r.val20, r._v20)}
+    ${tdWithClass(r.val50, r._v50)}
+    ${tdWithClass(r.val80, r._v80, true)}
+    ${tdWithClass(r.custom, r._vc)}
+    <td>${r.data_per || ''}</td>
+  </tr>`).join('')}</tbody>`;
+}
+
+                                        
   function renderTable(){ data=computeData(); doSort(); mount.classList.add('tablecard'); mount.innerHTML=`<table class="tablecard__table">${headerHTML()}${bodyHTML()}</table>`; mount.querySelectorAll('th.sortable').forEach(th=>{ th.classList.remove('asc','desc'); if(th.dataset.key===sortKey) th.classList.add(sortAsc?'asc':'desc'); th.onclick=()=>{ const key=th.dataset.key; if(sortKey===key) sortAsc=!sortAsc; else { sortKey=key; sortAsc=true; } renderTable(); }; }); }
   // exports
   function escapeCsvCell(s,d){ const needs=typeof s==='string'&&(s.includes(d)||s.includes('"')||s.includes('\n')); let out=String(s??''); out=out.replace(/"/g,'""'); return needs?`"${out}"`:out; }
@@ -486,7 +541,7 @@ function computeData(){
 
 // -------- DURATIONS --------
 (function(){
-  const CAP_YEARS = 200; // cutoff for "shows no transition"
+  const CAP_YEARS = 100; // cutoff for "shows no transition"
   function loadParams(){ const urls=['./params.csv','params.csv']; return new Promise((resolve,reject)=>{ (function next(i){ if(i>=urls.length){ if(DEV_SAMPLE){ resolve(parseCSV(SAMPLE_PARAMS_CSV)); return;} reject(new Error('Could not load params.csv.')); return;} fetch(urls[i],{cache:'no-store'}).then(r=>{if(!r.ok) throw new Error('HTTP '+r.status); return r.text();}).then(txt=>resolve(parseCSV(txt))).catch(()=>next(i+1)); })(0); }); }
   function slopeAtInflection(v1,v2){ const k=normNumber(v2), v1n=normNumber(v1); if(!(isFinite(k)&&isFinite(v1n))) return NaN; if(v1n>=0||k<=1) return NaN; const invLambda=Math.pow(-v1n,1/k); const u=Math.pow((k-1)/k,1/k); return k*invLambda*Math.pow(u,k-1)*Math.exp(-Math.pow(u,k)); }
   function yx(r,y){ const v1=normNumber(r.v1), v2=normNumber(r.v2), t0=getT0Years(r); const res=inv_x_years(y,v1,v2,t0); return (res&&isFinite(res.x))?res.x:NaN; }
@@ -528,8 +583,10 @@ function computeData(){
 })();
 
 // -------- BUILDER (fixed + robust time logic) --------
+
 (function(){
   let PARAM_ROWS = [];
+  let WEIGHTS = {};
 
   // Load Plotly on-demand so we don't touch <head>
   function ensurePlotly(){
@@ -584,6 +641,47 @@ function computeData(){
       })(0);
     });
   }
+function loadWeights(){
+  const urls = ['./weights.csv','weights.csv'];
+
+  // helper: pick first existing key (case variants)
+  const pick = (obj, keys) => {
+    for (const k of keys) {
+      if (obj[k] != null && String(obj[k]).trim() !== '') return obj[k];
+      // also try case-insensitive match
+      const found = Object.keys(obj).find(h => h.toLowerCase() === k.toLowerCase());
+      if (found && obj[found] != null && String(obj[found]).trim() !== '') return obj[found];
+    }
+    return '';
+  };
+
+  return new Promise((resolve)=>{
+    (function next(i){
+      if(i>=urls.length){ resolve({}); return; }
+
+      fetch(urls[i],{cache:'no-store'})
+        .then(r=>r.ok?r.text():Promise.reject())
+        .then(txt=>{
+          const rows = parseCSV(txt);
+          const map = {};
+
+          rows.forEach(r=>{
+            const countryRaw = pick(r, ['country','Country','COUNTRY','name','Name']);
+            const weightRaw  = pick(r, ['weight','Weight','WEIGHT','market_size','MarketSize','size','Size']);
+
+            const country = String(countryRaw||'').trim();
+            const w = normNumber(weightRaw);
+
+            if(country && isFinite(w)) map[country] = w;
+          });
+
+          resolve(map);
+        })
+        .catch(()=>next(i+1));
+    })(0);
+  });
+}
+
 
   
     // --- Predefined country groupings (Builder only) ---
@@ -593,7 +691,7 @@ const BUILDER_GROUPS = {
   // ---- EUROPE ----
   western_europe: rows => [
     'Austria','Belgium','France','Germany','Netherlands',
-    'Luxembourg','Switzerland','Ireland','United Kingdom'
+    'Luxembourg','Switzerland','Ireland','United Kingdom','UK'
   ],
   northern_europe: rows => [
     'Norway','Sweden','Denmark','Finland','Iceland'
@@ -613,12 +711,12 @@ const BUILDER_GROUPS = {
   ],
   // ---- G7 ----
   g7: rows => [
-    'United States','Canada','Japan',
-    'Germany','France','United Kingdom','Italy'
+    'USA','Canada','Japan',
+    'Germany','France','United Kingdom','Italy','UK'
   ],
   // ---- AMERICAS ----
   north_america: rows => [
-    'United States','Canada','Mexico'
+    'United States','Canada','Mexico', 'USA'
   ],
   south_america: rows => [
     'Brazil','Argentina','Chile','Colombia',
@@ -627,7 +725,7 @@ const BUILDER_GROUPS = {
   americas: rows => [
     'United States','Canada','Mexico',
     'Brazil','Argentina','Chile','Colombia',
-    'Peru','Uruguay'
+    'Peru','Uruguay', 'USA'
   ],
   // ---- ASIA ----
   asia: rows => [
@@ -663,72 +761,84 @@ const BUILDER_GROUPS = {
   }
 
   function build(){
-    const sel = document.getElementById('builderCountries');
-    const chosen = [...sel.selectedOptions].map(o=>o.value);
-    if(!chosen.length) return;
+  const sel = document.getElementById('builderCountries');
+  const chosen = [...sel.selectedOptions].map(o=>o.value);
+  if(!chosen.length) return;
 
-    // Filter to selected rows (all variants present in params.csv; you can later add a variant filter)
-    const rows = PARAM_ROWS.filter(r =>
-      chosen.includes(r.country) &&
-      ['whole', '4-wheelers'].includes(normalizeBase(r.variant))
-    );
+  const rows = PARAM_ROWS.filter(r =>
+    chosen.includes(r.country) &&
+    ['whole','4-wheelers'].includes(normalizeBase(r.variant))
+  );
 
+  const xs = [];
+  const ys = [];
 
-    // Simple equal weights for now (consistent + stable). Market-size weights can be added later.
-    const w = 1 / rows.length;
+  for(let year = 2015; year <= 2050; year += 0.25){
+    let ySum = 0;
+    let wSum = 0;
 
-    const xs=[], ys=[];
-    for(let year=2015; year<=2050; year+=1/12){
-      let y=0;
+    rows.forEach(r=>{
+      const v1 = normNumber(r.v1);
+      const v2 = normNumber(r.v2);
+      const t0 = getT0Years(r);
+      const by = baselineYearOf(r);
+      //const wi = WEIGHTS[r.country] ?? 1;
+      const wi = (r.country === 'China') ? 1000 : 1;
 
-      rows.forEach(r=>{
-        const v1 = normNumber(r.v1);
-        const v2 = normNumber(r.v2);
-        const t0 = getT0Years(r);           // KEY: consistent with Thresholds/Durations
-        const by = baselineYearOf(r);       // baseline year used for x transform
+      if(!isFinite(v1)||!isFinite(v2)||!isFinite(t0)||!isFinite(by)||!isFinite(wi)) return;
 
-        if(!isFinite(v1) || !isFinite(v2) || !isFinite(t0) || !isFinite(by)){
-          return; // skip malformed rows instead of poisoning whole curve
-        }
+      const x = year - by + 1;
+      const yi = bevShareIndex(x, v1, v2, t0);
 
-        const x = year - by + 1; // index time aligned to baseline + t0            // KEY: calendar year -> index time
-        y += w * bevShareIndex(x, v1, v2, t0);
-      });
+      ySum += wi * yi;
+      wSum += wi;
+    });
 
-      xs.push(year);
-      ys.push(100*y);
-    }
-
-    // Plot with numeric x; show month labels in tooltip (NOT as categorical axis)
-    const trace = {
-      x: xs,
-      y: ys,
-      mode: 'lines',
-      name: 'Aggregated BEV share',
-      customdata: xs.map(yearFracToLabel),
-      hovertemplate: '%{customdata}<br>%{y:.1f}%<extra></extra>'
-    };
-
-    const layout = {
-      margin: {t: 18, r: 10, b: 55, l: 55},
-      yaxis: {title: 'BEV share (%)', range: [0, 100]},
-      xaxis: {title: 'Calendar time', range: [2015, 2050]},
-      paper_bgcolor: '#0f1525',
-      plot_bgcolor:  '#0f1525',
-      font: {color: '#e9eef2'}
-    };
-
-    Plotly.newPlot('builderPlot', [trace], layout, {displayModeBar: true, responsive: true});
+    xs.push(year);
+    ys.push(wSum > 0 ? 100 * ySum / wSum : 0);
   }
+
+  const trace = {
+    x: xs,
+    y: ys,
+    mode: 'lines',
+    name: 'Aggregated BEV share',
+    customdata: xs.map(yearFracToLabel),
+    hovertemplate: '%{customdata}<br>%{y:.1f}%<extra></extra>'
+  };
+
+  Plotly.newPlot('builderPlot', [trace], {
+    yaxis:{title:'BEV share (%)',range:[0,100]},
+    xaxis:{title:'Calendar time'},
+    paper_bgcolor:'#0f1525',
+    plot_bgcolor:'#0f1525',
+    font:{color:'#e9eef2'}
+  }, {responsive:true});
+    
+      const dbg = rows.map(r => {
+      const w = WEIGHTS[r.country] ?? 1;
+      return `${r.country}: ${w}`;
+    }).join(' • ');
+
+    document.getElementById('builderDebug').textContent =
+      `Weights used (${rows.length}): ` + dbg;
+}
+
 
   document.addEventListener('DOMContentLoaded',()=>{
     // Ensure plot mount has a height (some browsers collapse empty divs)
     const mount = document.getElementById('builderPlot');
     if(mount && !mount.style.height) mount.style.height = '440px';
 
-    Promise.all([ensurePlotly(), loadParamsForBuilder()])
-      .then(([,rows])=>initBuilder(rows))
-      .catch(()=>console.warn('Builder: Plotly or params.csv not loaded'));
+      Promise.all([
+        ensurePlotly(),
+        loadParamsForBuilder(),
+        loadWeights()
+      ]).then(([,rows,weights])=>{
+        WEIGHTS = weights;
+        initBuilder(rows);
+      }).catch(()=>console.warn('Builder: Plotly / params / weights not loaded'));
+
 
     document.getElementById('buildCurve')
       .addEventListener('click', ()=>ensurePlotly().then(build));
