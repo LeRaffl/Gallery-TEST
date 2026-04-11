@@ -2578,6 +2578,30 @@ const FAQ_DATA = [
     answers: ['Technology adoption typically follows an S-curve: slow at first, then accelerating as barriers fall, and eventually slowing again as saturation is approached. This acceleration is gradual, not tied to a specific moment. The model visualizes this continuous process rather than a discrete tipping point.'] },
 
   // ----- FLEET -----
+  { tag: 'model', label: 'Model', q: 'What is the hazard rate, in one sentence?',
+    answers: [
+      'The hazard rate is the share of a category that disappears from the fleet in one year (scrappage, accidents, deregistrations).',
+      'Example: a BEV hazard of 0.035 means that without any new inflow, 3.5% of the BEV fleet leaves every year, so 96.5% survive into the next year.'
+    ] },
+  { tag: 'model', label: 'Model', q: 'What is the formula for the hazard rate?',
+    answers: [
+      'For each category (BEV, PHEV, HEV, HYBRID, PETROL, DIESEL, OTHERS) the effective hazard at projection year <i>age</i> is:',
+      '<b>hz_eff(cat, age) = base[cat] + slope \u00d7 max(0, age \u2212 knee)</b>',
+      'where <i>age</i> = projection year \u2212 snapshot year (the last observed year), and the result is capped at 0.5 so a single year can never wipe more than half of a category.',
+      'The seven number inputs in the Fleet tab are the <b>base[cat]</b> values \u2014 the hazard at year 0. The two extra inputs <b>knee</b> (default 12) and <b>slope</b> (default 0.004) describe how the hazard climbs as the fleet ages.',
+      'Setting <b>slope = 0</b> turns the function into a constant: every category keeps its base rate forever. That is the previous (static) behaviour, exactly.'
+    ] },
+  { tag: 'model', label: 'Model', q: 'Why does the hazard rate change over time?',
+    answers: [
+      'Real vehicles do not have a constant scrappage probability. A 2-year-old car almost never gets scrapped; a 15-year-old car frequently does. The longer the projection runs, the older the average vehicle in the fleet, so the average yearly attrition naturally rises.',
+      'The age curve fakes this without tracking each vintage individually: the base rate applies for the first <b>knee</b> years (default 12), and after that the rate climbs by <b>slope</b> per year. So a BEV with base 0.035, knee 12, slope 0.004 still has a 3.5% hazard up to projection year 12, then 3.9% at year 13, 4.3% at year 14, and so on.'
+    ] },
+  { tag: 'model', label: 'Model', q: 'How does each year\u2019s fleet shrink (worked example)?',
+    answers: [
+      'Take the BEV count for the previous year and multiply by (1 \u2212 hz_eff). Then add this year\u2019s new BEV inflow. That\u2019s it.',
+      'Norway BEV at end of 2025: 945,182. With base 0.035 and projection age 1 (so hz_eff still = 0.035):<br>2026 survivors = 945,182 \u00d7 (1 \u2212 0.035) = 912,101.<br>Add new inflow on top, and you have the 2026 BEV count.',
+      'The same step is applied to every category every year. The model just repeats this loop until it reaches the end year you set.'
+    ] },
   { tag: 'model', label: 'Model', q: 'How are fleet projections calculated?',
     answers: ['Fleet projections combine the last observed fleet composition with modeled inflow of new vehicles and category-specific attrition rates.'] },
   { tag: 'model', label: 'Model', q: 'How are fleet projections calculated in detail?',
