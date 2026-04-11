@@ -735,6 +735,42 @@ th.sortable.desc::after{content:" ↓"}
   </div>
 </div>
 
+<div class="small" style="margin-top:14px; margin-bottom:6px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+  <span>Hazard age curve</span>
+  <span class="info-tip"
+        data-tip="Hazards above are the BASE rate. As the projection runs forward, the effective hazard climbs once the projection age passes the knee year. Effective rate = base + slope × max(0, projection_age − knee_year). Set slope = 0 to keep hazards static (the previous behaviour).">
+    i
+  </span>
+</div>
+
+<div id="fleetHazardCurveGrid" style="
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap:10px;
+">
+  <div class="field">
+    <div style="display:flex; align-items:center; gap:6px;">
+      <label for="hazardKneeYear">Knee (years into projection)</label>
+      <span class="info-tip"
+            data-tip="Number of projection years before the hazard rate starts climbing above the base. Default 12: a fleet snapshot ages roughly 12 years before scrappage hazard rises noticeably.">
+        i
+      </span>
+    </div>
+    <input id="hazardKneeYear" type="number" min="0" max="50" step="1" value="12">
+  </div>
+
+  <div class="field">
+    <div style="display:flex; align-items:center; gap:6px;">
+      <label for="hazardSlope">Slope (per year past knee)</label>
+      <span class="info-tip"
+            data-tip="Annual increase added to every category's hazard once the projection age passes the knee. Default 0.004 = +0.4 percentage points per year past the knee. Set to 0 to disable the curve and keep hazards static.">
+        i
+      </span>
+    </div>
+    <input id="hazardSlope" type="number" min="0" max="0.05" step="0.001" value="0.004">
+  </div>
+</div>
+
 <div class="small" style="margin-top:10px;">
   Future years are projected from the last common observed year. Historical bars remain solid, projected bars are hatched.
 </div>
@@ -1645,15 +1681,43 @@ function safeNum(x, fallback = 0){
 }
 
 function readFleetHazards(){
+  // Base (year-zero) hazard per category. The age curve below scales these
+  // up as the projection runs forward. Defaults match the HTML `value=`
+  // attributes, not the older 0.01-style numbers — those are stale.
   return {
-    BEV:    safeNum(document.getElementById('hazBEV')?.value, 0.010),
-    PHEV:   safeNum(document.getElementById('hazPHEV')?.value, 0.020),
-    HEV:    safeNum(document.getElementById('hazHEV')?.value, 0.030),
-    HYBRID: safeNum(document.getElementById('hazHYBRID')?.value, 0.030),
-    PETROL: safeNum(document.getElementById('hazPETROL')?.value, 0.055),
-    DIESEL: safeNum(document.getElementById('hazDIESEL')?.value, 0.065),
-    OTHERS: safeNum(document.getElementById('hazOTHERS')?.value, 0.050)
+    BEV:    safeNum(document.getElementById('hazBEV')?.value, 0.035),
+    PHEV:   safeNum(document.getElementById('hazPHEV')?.value, 0.040),
+    HEV:    safeNum(document.getElementById('hazHEV')?.value, 0.042),
+    HYBRID: safeNum(document.getElementById('hazHYBRID')?.value, 0.041),
+    PETROL: safeNum(document.getElementById('hazPETROL')?.value, 0.050),
+    DIESEL: safeNum(document.getElementById('hazDIESEL')?.value, 0.055),
+    OTHERS: safeNum(document.getElementById('hazOTHERS')?.value, 0.060)
   };
+}
+
+// Age-aware hazard curve. The "base" rates above are treated as the
+// hazard at projection year 0 (i.e. the snapshot year). As we project
+// forward, the average vehicle gets older, so the effective hazard
+// climbs linearly past `kneeYear`:
+//
+//   hz_eff(cat, age) = base[cat] + slope * max(0, age - kneeYear)
+//
+// where `age` = projection year - snapshot year. Capped at 0.5 so a
+// pathological slope can never wipe a category in a single year.
+//
+// Set slope = 0 in the UI to recover the previous static behaviour.
+function readHazardCurve(){
+  return {
+    base: readFleetHazards(),
+    kneeYear: Math.max(0, safeNum(document.getElementById('hazardKneeYear')?.value, 12)),
+    slope:    Math.max(0, safeNum(document.getElementById('hazardSlope')?.value, 0.004))
+  };
+}
+
+function effectiveHazard(curve, cat, projectionAge){
+  const base = Math.max(0, safeNum(curve.base?.[cat], 0));
+  const extra = curve.slope * Math.max(0, projectionAge - curve.kneeYear);
+  return Math.min(0.5, base + extra);
 }
 
 function getFleetCategories(){
@@ -1892,7 +1956,11 @@ function inferNonBevSplit(startRow){
 function projectCountryFleet(country, startYear, endYear, options){
   const startRow = getObservedRow(country, startYear);
   if(!startRow) return [];
-  const hazards = options.hazards;
+  // `hazardCurve` is the new age-aware form: { base, kneeYear, slope }.
+  // `options.hazards` (the old flat map) is still accepted as a fallback
+  // so external callers — and tests — keep working without changes.
+  const hazardCurve = options.hazardCurve
+    || { base: options.hazards || {}, kneeYear: 0, slope: 0 };
   const inflowMultiplier = options.inflowMultiplier;
   const netImports = options.netImportsPerYear;
   const bevImportShare = clamp01(options.bevImportShare);
@@ -1900,10 +1968,11 @@ function projectCountryFleet(country, startYear, endYear, options){
   const series = [{ ...startRow, projected:false, country }];
   let prev = { ...startRow };
   for(let year = startYear + 1; year <= endYear; year++){
+    const projectionAge = year - startYear;
     const next = emptyFleetRow(year);
     getFleetCategories().forEach(cat => {
       const prevVal = safeNum(prev[cat], 0);
-      const hz = Math.max(0, safeNum(hazards[cat], 0));
+      const hz = effectiveHazard(hazardCurve, cat, projectionAge);
       next[cat] = prevVal * (1 - hz);
     });
     const annualInflowBase = getCountryAnnualInflow(country);
@@ -2146,7 +2215,7 @@ function buildFleetPlot() {
   );
 
   const options = {
-    hazards: readFleetHazards(),
+    hazardCurve: readHazardCurve(),
     inflowMultiplier: safeNum(document.getElementById('fleetInflowMultiplier')?.value, 1),
     netImportsPerYear: safeNum(document.getElementById('fleetNetImportsPerYear')?.value, 0),
     bevImportShare: clamp01(
@@ -2375,7 +2444,8 @@ document.getElementById('fleetEnableProjection')
   'fleetInflowMultiplier',
   'fleetNetImportsPerYear',
   'fleetBevImportShare',
-  'hazBEV','hazPHEV','hazHEV','hazHYBRID','hazPETROL','hazDIESEL','hazOTHERS'
+  'hazBEV','hazPHEV','hazHEV','hazHYBRID','hazPETROL','hazDIESEL','hazOTHERS',
+  'hazardKneeYear','hazardSlope'
 ].forEach(id => {
   document.getElementById(id)?.addEventListener('input', updateFleetPlotDebounced);
 });
@@ -2512,13 +2582,14 @@ const FAQ_DATA = [
     answers: ['Fleet projections combine the last observed fleet composition with modeled inflow of new vehicles and category-specific attrition rates.'] },
   { tag: 'model', label: 'Model', q: 'How are fleet projections calculated in detail?',
     answers: [
-      'The model projects the fleet forward year by year using three components: (1) the existing fleet from the previous year, (2) category-specific retirement ("hazard") rates, and (3) the annual inflow of newly registered vehicles.',
+      'The model projects the fleet forward year by year using three components: (1) the existing fleet from the previous year, (2) category-specific retirement ("hazard") rates that climb with projection age, and (3) the annual inflow of newly registered vehicles.',
       'Example starting fleet (2025):<br>BEV: 945,182<br>PHEV: 208,467<br>HEV: 162,422<br>DIESEL: 942,780<br>PETROL: 676,614<br>OTHERS: 270',
-      'Example hazard (retirement) rates:<br>BEV: 0.010<br>PHEV: 0.020<br>HEV: 0.030<br>HYBRID: 0.030<br>DIESEL: 0.065<br>PETROL: 0.055<br>OTHERS: 0.050',
+      'Example BASE hazard rates (year 0):<br>BEV: 0.035<br>PHEV: 0.040<br>HEV: 0.042<br>HYBRID: 0.041<br>DIESEL: 0.055<br>PETROL: 0.050<br>OTHERS: 0.060',
+      'Hazard age curve: hz_eff(cat, age) = base[cat] + slope \u00d7 max(0, age \u2212 knee).<br>Defaults: knee = 12 years, slope = 0.004 per year.<br>Example: a BEV at projection year 15 has hz_eff = 0.035 + 0.004 \u00d7 (15 \u2212 12) = 0.047.<br>Set slope = 0 to keep hazards static.',
       'Assume:<br>Annual new vehicle inflow: 150,000<br>Inflow multiplier: 1<br>Net imports: 0',
-      'Step 1 \u2013 Apply hazard rates (vehicles leaving the fleet).<br>Each category loses a fraction of its vehicles according to its hazard rate.<br>Example:<br>2026 BEV survivors = 945,182 \u00d7 (1 \u2212 0.010)',
+      'Step 1 \u2013 Apply the effective hazard rate for this projection year (vehicles leaving the fleet).<br>Each category loses a fraction of its vehicles according to its current hz_eff.<br>Example:<br>2026 BEV survivors = 945,182 \u00d7 (1 \u2212 0.035)',
       'Step 2 \u2013 Add new vehicle inflow.<br>The annual inflow is distributed using the modeled BEV share for the middle of the projection year (year + 0.5).',
-      'Example:<br>2026 BEV fleet = 945,182 \u00d7 (1 \u2212 0.010) + 150,000 \u00d7 BEV_share(2026.5)',
+      'Example:<br>2026 BEV fleet = 945,182 \u00d7 (1 \u2212 0.035) + 150,000 \u00d7 BEV_share(2026.5)',
       'Step 3 \u2013 Assign the remaining inflow.<br>Non-BEV inflow is assigned as follows:<br>\u2022 If PHEV exists \u2192 to PHEV<br>\u2022 Else if HYBRID exists \u2192 to HYBRID<br>\u2022 Else \u2192 to OTHERS',
       'The process repeats each year, using the updated fleet as the new baseline.'
     ] },
