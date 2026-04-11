@@ -2594,7 +2594,9 @@ const FAQ_DATA = [
   { tag: 'model', label: 'Model', q: 'Why does the hazard rate change over time?',
     answers: [
       'Real vehicles do not have a constant scrappage probability. A 2-year-old car almost never gets scrapped; a 15-year-old car frequently does. The longer the projection runs, the older the average vehicle in the fleet, so the average yearly attrition naturally rises.',
-      'The age curve fakes this without tracking each vintage individually: the base rate applies for the first <b>knee</b> years (default 12), and after that the rate climbs by <b>slope</b> per year. So a BEV with base 0.035, knee 12, slope 0.004 still has a 3.5% hazard up to projection year 12, then 3.9% at year 13, 4.3% at year 14, and so on.'
+      'The linear age curve fakes this without tracking each vintage individually: the base rate applies for the first <b>knee</b> years (default 12), and after that the rate climbs by <b>slope</b> per year. So a BEV with base 0.035, knee 12, slope 0.004 still has a 3.5% hazard up to projection year 12, then 3.9% at year 13, 4.3% at year 14, and so on.',
+      '<b>Caveat:</b> real survival curves are roughly bathtub-shaped (very low hazard for the first few years, a long plateau, then a steeper rise around 15\u201320 years), and they eventually plateau again rather than rising forever. A straight line is a deliberate simplification \u2014 it is more realistic than a constant rate and stays useful for projection horizons up to ~15 years, but for very long horizons (25+ years) it understates the middle years and overstates the tail. A per-vintage tracking model would be the next step up.',
+      'The same curve is also applied uniformly to every category, even though in practice the average age of a Diesel fleet today is several years above the average age of a BEV fleet. That difference is not modelled here \u2014 the projection treats every category as if its current snapshot were "year 0".'
     ] },
   { tag: 'model', label: 'Model', q: 'How does each year\u2019s fleet shrink (worked example)?',
     answers: [
