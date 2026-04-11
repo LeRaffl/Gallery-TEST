@@ -386,6 +386,7 @@ th.sortable.desc::after{content:" ↓"}
     <a href="#durations" class="tablink">Durations</a>
     <a href="#builder" class="tablink">Builder</a>
     <a href="#fleet" class="tablink">Fleet</a>
+    <a href="#worldmap" class="tablink">World Map</a>
     <a href="#faq" class="tablink">FAQ</a>
   </nav>
 
@@ -963,10 +964,82 @@ th.sortable.desc::after{content:" ↓"}
   Fleet-Debug (Loading-Status):
   → waiting for Tab-Activation ...
 </div>
-  
+
 </section>
-    
-    
+
+<!-- WORLD MAP TAB -->
+<section id="tab-worldmap" class="tab">
+  <div class="container">
+    <h2 style="margin:2px 0 6px">World Map</h2>
+    <p class="small" style="margin:0 0 14px">
+      Same country data as the <b>Thresholds</b> and <b>Durations</b> tabs, painted on a world map.
+      Only the default (whole-market, passenger-car) variant is shown.
+    </p>
+
+    <div class="card" style="margin-bottom:14px">
+      <div class="small" style="margin-bottom:6px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+        <span>Metric</span>
+        <span class="info-tip"
+          data-tip="Which number is painted on every country. Same underlying Weibull model as the Thresholds and Durations tabs — this view just rearranges the data on a map so the geographic pattern is visible at a glance.">i</span>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <label class="chip">
+          <input type="radio" name="wmMetric" value="year80" checked>
+          Year reaching 80% BEV (inflow)
+        </label>
+        <label class="chip">
+          <input type="radio" name="wmMetric" value="d2080">
+          20 → 80 % transition time
+        </label>
+        <label class="chip">
+          <input type="radio" name="wmMetric" value="year50">
+          Year reaching 50% BEV (inflow)
+        </label>
+        <label class="chip">
+          <input type="radio" name="wmMetric" value="year20">
+          Year reaching 20% BEV (inflow)
+        </label>
+      </div>
+      <p class="small" id="wmExplainer" style="margin:12px 0 0; color:#9fb3d1; line-height:1.5;"></p>
+    </div>
+
+    <div class="card" style="padding:6px 6px 10px;">
+      <div id="worldMapPlot" style="height:600px"></div>
+      <p class="small" style="margin:2px 12px 2px; color:#6f86ad;">
+        Color scale is clipped at the 5th and 95th percentile so outliers (hi, Norway 👋) don't flatten the rest of the world. Exact values always live in the hover tooltip.
+      </p>
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+        <div>
+          <h3 style="margin:0 0 10px; font-size:14px; color:#7fe0b0; letter-spacing:0.3px; text-transform:uppercase;">Leaders</h3>
+          <ol id="wmTopList" style="margin:0; padding:0 0 0 22px; color:#eef3ff; font-size:13px; line-height:1.7;"></ol>
+        </div>
+        <div>
+          <h3 style="margin:0 0 10px; font-size:14px; color:#ffb07f; letter-spacing:0.3px; text-transform:uppercase;">Laggards</h3>
+          <ol id="wmBottomList" style="margin:0; padding:0 0 0 22px; color:#eef3ff; font-size:13px; line-height:1.7;"></ol>
+        </div>
+      </div>
+      <p class="small" style="margin:12px 0 0; color:#6f86ad;">
+        Top and bottom five for the selected metric. Based on the fitted Weibull model — countries that the model projects as "no transition" within a reasonable horizon are excluded.
+      </p>
+    </div>
+
+    <div id="worldMapDebugBox" style="
+      background: #332200;
+      color: #ffdd88;
+      padding: 12px;
+      border-radius: 10px;
+      margin: 16px 0 24px;
+      font-family: monospace;
+      white-space: pre-wrap;
+      border: 2px dashed #664400;
+      display: none;
+    "></div>
+  </div>
+</section>
+
 <script>
 // Generic trailing-edge debounce. Used to throttle expensive recomputes
 // (Plotly redraws, full-list DOM scans) when an input fires on every keystroke.
@@ -1064,15 +1137,23 @@ function loadFleetWhenActive() {
     initFleetTab();
   }
 }
+// World-Map-Tab nur laden, wenn er aktiv wird
+function loadWorldMapWhenActive() {
+  if (location.hash === '#worldmap') {
+    initWorldMap();
+  }
+}
 // Bei jedem Tab-Wechsel prüfen
 window.addEventListener('hashchange', () => {
   activateTabByHash();
   loadFleetWhenActive();
+  loadWorldMapWhenActive();
 });
 // Initial beim Laden prüfen
 window.addEventListener('DOMContentLoaded', () => {
   activateTabByHash();
   loadFleetWhenActive();
+  loadWorldMapWhenActive();
 });
   
 // -------- Lightbox ergonomics --------
@@ -3233,6 +3314,357 @@ document.addEventListener('keydown', (e) => {
     document.querySelectorAll('.info-bubble').forEach(b => b.remove());
   }
 });
+
+// -------- WORLD MAP --------
+//
+// The world map reuses the same Weibull-fit data that Thresholds and
+// Durations already load from params.csv. We only take the "whole"
+// (passenger-car / whole-market) variant of each country, derive the
+// four metrics we paint, and hand them to a Plotly choropleth.
+//
+// Plotly understands full country names when locationmode is set to
+// 'country names', so most rows just pass through. A tiny alias table
+// below catches the handful of names where params.csv and Plotly's
+// Natural Earth dataset disagree (Türkiye, USA, UK, Korea, ...).
+
+const WORLDMAP_STATE = {
+  loaded: false,
+  rows: [],        // cleaned per-country rows with all metrics pre-computed
+};
+
+// params.csv names → Plotly choropleth names (where they differ).
+const WM_COUNTRY_ALIASES = {
+  'Türkiye':                 'Turkey',
+  'Turkiye':                 'Turkey',
+  'USA':                     'United States',
+  'US':                      'United States',
+  'United States of America':'United States',
+  'UK':                      'United Kingdom',
+  'Great Britain':           'United Kingdom',
+  'South Korea':             'South Korea',
+  'Korea':                   'South Korea',
+  'Korea, Republic of':      'South Korea',
+  'Republic of Korea':       'South Korea',
+  'Czechia':                 'Czech Republic',
+  'Russia':                  'Russia',
+  'Russian Federation':      'Russia',
+  'Viet Nam':                'Vietnam',
+  'UAE':                     'United Arab Emirates',
+  'Hong Kong, China':        'Hong Kong',
+  'Taiwan, China':           'Taiwan',
+  'Chinese Taipei':          'Taiwan',
+  'NewZealand':              'New Zealand',
+  'Newzealand':              'New Zealand',
+  'SouthKorea':              'South Korea',
+  'SaudiArabia':             'Saudi Arabia',
+  'UnitedKingdom':           'United Kingdom',
+  'UnitedStates':            'United States'
+};
+
+function wmNormalizeCountry(raw){
+  const k = String(raw || '').trim();
+  if (!k) return '';
+  return WM_COUNTRY_ALIASES[k] || k;
+}
+
+// Pull params.csv (via the same two-URL probe Thresholds uses), keep
+// only the "whole" variant of each country, compute the 20/50/80 year
+// and the 20→80 duration, and cache everything for fast re-renders.
+function wmLoadData(){
+  if (WORLDMAP_STATE.loaded) return Promise.resolve();
+  const urls = ['./params.csv','params.csv'];
+  return new Promise((resolve, reject) => {
+    (function next(i){
+      if (i >= urls.length){
+        reject(new Error('Could not load params.csv for world map'));
+        return;
+      }
+      fetch(urls[i], { cache: 'no-store' })
+        .then(r => r.ok ? r.text() : Promise.reject(new Error('HTTP ' + r.status)))
+        .then(txt => {
+          const rows = parseCSV(txt);
+          WORLDMAP_STATE.rows = wmBuildRows(rows);
+          WORLDMAP_STATE.loaded = true;
+          resolve();
+        })
+        .catch(() => next(i + 1));
+    })(0);
+  });
+}
+
+function wmBuildRows(csvRows){
+  // Keep one row per country — the "whole" variant. If a country has
+  // several "whole" rows (shouldn't happen, but just in case) pick the
+  // one with the most recent data_per so we reflect the freshest fit.
+  const byCountry = new Map();
+  for (const r of csvRows){
+    const parts = extractVariantParts(r.variant || '');
+    if (normalizeBase(parts.base || '') !== 'whole') continue;
+
+    const country = wmNormalizeCountry(r.country);
+    if (!country) continue;
+
+    const prev = byCountry.get(country);
+    const dp = getDataPer(r);
+    if (!prev || (dp && dp > (prev._dp || ''))) {
+      byCountry.set(country, { ...r, _dp: dp });
+    }
+  }
+
+  const out = [];
+  for (const r of byCountry.values()){
+    const v1 = normNumber(r.v1);
+    const v2 = normNumber(r.v2);
+    const t0 = getT0Years(r);
+    const baseYear = normNumber(r.baseline_year);
+    const baseDate = r.baseline_date || '';
+
+    // Solve the Weibull for 20, 50, 80 % and convert to absolute year.
+    function yearAt(y){
+      const res = inv_x_years(y, v1, v2, t0);
+      if (!res || !isFinite(res.x)) return NaN;
+      const dstr = yearsIndexToDate(res.x, baseDate, baseYear);
+      if (!dstr) return NaN;
+      const parsed = Date.parse(dstr);
+      if (!isFinite(parsed)) return NaN;
+      const yFrac = new Date(parsed).getUTCFullYear()
+        + (new Date(parsed).getUTCMonth() + (new Date(parsed).getUTCDate()-1)/31) / 12;
+      // Anything past 2199 is the model saying "no transition".
+      if (yFrac > 2199) return NaN;
+      return yFrac;
+    }
+
+    const y20 = yearAt(0.20);
+    const y50 = yearAt(0.50);
+    const y80 = yearAt(0.80);
+    const d2080 = (isFinite(y20) && isFinite(y80)) ? (y80 - y20) : NaN;
+
+    out.push({
+      country: wmNormalizeCountry(r.country),
+      dataPer: r._dp || '',
+      year20: y20,
+      year50: y50,
+      year80: y80,
+      d2080:  d2080
+    });
+  }
+  // Sort for deterministic list order later.
+  out.sort((a,b) => a.country.localeCompare(b.country));
+  return out;
+}
+
+// Metric definitions for the chip bar.
+const WM_METRICS = {
+  year80: {
+    label: 'Year reaching 80% BEV (inflow)',
+    pick:  r => r.year80,
+    // colorscale goes from "good/early" to "bad/late"
+    colorscale: [[0,'#1f8f4d'],[0.3,'#7fe0b0'],[0.55,'#ffd27f'],[0.8,'#ff8c5a'],[1,'#b04020']],
+    reversescale: false,
+    fmt: v => isFinite(v) ? wmYearFmt(v) : '—',
+    hoverSuffix: '',
+    explain: 'Projected calendar year in which <b>80%</b> of newly registered vehicles are electric in each country, based on the Weibull fit from the Thresholds tab. Greener = earlier, warmer = later. Countries the model cannot fit (or where the transition runs past 2199) are left blank.'
+  },
+  year50: {
+    label: 'Year reaching 50% BEV (inflow)',
+    pick:  r => r.year50,
+    colorscale: [[0,'#1f8f4d'],[0.3,'#7fe0b0'],[0.55,'#ffd27f'],[0.8,'#ff8c5a'],[1,'#b04020']],
+    reversescale: false,
+    fmt: v => isFinite(v) ? wmYearFmt(v) : '—',
+    hoverSuffix: '',
+    explain: 'Projected calendar year in which <b>50%</b> of newly registered vehicles are electric. The halfway point — a more robust "where is the pivot?" indicator than 80% because small countries hit 50% long before they saturate.'
+  },
+  year20: {
+    label: 'Year reaching 20% BEV (inflow)',
+    pick:  r => r.year20,
+    colorscale: [[0,'#1f8f4d'],[0.3,'#7fe0b0'],[0.55,'#ffd27f'],[0.8,'#ff8c5a'],[1,'#b04020']],
+    reversescale: false,
+    fmt: v => isFinite(v) ? wmYearFmt(v) : '—',
+    hoverSuffix: '',
+    explain: 'Projected calendar year in which <b>20%</b> of newly registered vehicles are electric. This is where the S-curve really starts climbing — it is the historical "early adopter" milestone.'
+  },
+  d2080: {
+    label: '20 → 80 % transition time',
+    pick:  r => r.d2080,
+    // shorter = greener (better)
+    colorscale: [[0,'#1f8f4d'],[0.3,'#7fe0b0'],[0.55,'#ffd27f'],[0.8,'#ff8c5a'],[1,'#b04020']],
+    reversescale: false,
+    fmt: v => isFinite(v) ? wmDurationFmt(v) : '—',
+    hoverSuffix: '',
+    explain: 'How long the <b>core transition</b> takes in each country — the number of years between passing 20% BEV share of new registrations and passing 80%. Shorter (greener) means the S-curve is steeper; longer (warmer) means the transition drags.'
+  }
+};
+
+function wmYearFmt(yearFrac){
+  if (!isFinite(yearFrac)) return '—';
+  const y = Math.floor(yearFrac);
+  const m = Math.min(12, Math.max(1, Math.floor((yearFrac - y) * 12) + 1));
+  return `${y}-${String(m).padStart(2,'0')}`;
+}
+
+function wmDurationFmt(years){
+  if (!isFinite(years)) return '—';
+  const y = Math.floor(Math.abs(years) + 1e-9);
+  const m = Math.round((Math.abs(years) - y) * 12);
+  const sign = years < 0 ? '-' : '';
+  if (y && m) return `${sign}${y}y ${m}m`;
+  if (y)      return `${sign}${y}y`;
+  return `${sign}${m}m`;
+}
+
+// Percentile clip for the color scale — one or two outliers (Norway
+// hitting 80% well before anyone else) would otherwise flatten the
+// whole world into a single color. We clamp the scale to P5..P95 of
+// the actual data so the rest of the map gets a useful spread.
+function wmPercentileRange(values){
+  const arr = values.filter(v => isFinite(v)).slice().sort((a,b)=>a-b);
+  if (!arr.length) return [0, 1];
+  const q = p => {
+    const idx = Math.max(0, Math.min(arr.length-1, Math.round((arr.length-1) * p)));
+    return arr[idx];
+  };
+  const lo = q(0.05);
+  const hi = q(0.95);
+  if (lo === hi){
+    // Degenerate case: give the scale at least a tiny range so Plotly
+    // doesn't complain.
+    return [lo - 0.5, hi + 0.5];
+  }
+  return [lo, hi];
+}
+
+function wmCurrentMetricKey(){
+  return document.querySelector('input[name="wmMetric"]:checked')?.value || 'year80';
+}
+
+function wmRender(){
+  const metricKey = wmCurrentMetricKey();
+  const metric = WM_METRICS[metricKey];
+  const rows = WORLDMAP_STATE.rows;
+
+  const locations = [];
+  const values = [];
+  const hoverText = [];
+  for (const r of rows){
+    const v = metric.pick(r);
+    if (!isFinite(v)) continue;
+    locations.push(r.country);
+    values.push(v);
+    hoverText.push(
+      `<b>${r.country}</b><br>` +
+      `${metric.label}: <b>${metric.fmt(v)}${metric.hoverSuffix}</b><br>` +
+      `<span style="opacity:0.75">` +
+      `20%: ${isFinite(r.year20) ? wmYearFmt(r.year20) : '—'} · ` +
+      `50%: ${isFinite(r.year50) ? wmYearFmt(r.year50) : '—'} · ` +
+      `80%: ${isFinite(r.year80) ? wmYearFmt(r.year80) : '—'}<br>` +
+      `20→80%: ${isFinite(r.d2080) ? wmDurationFmt(r.d2080) : '—'}` +
+      (r.dataPer ? `<br>data per: ${r.dataPer}` : '') +
+      `</span><extra></extra>`
+    );
+  }
+
+  const [zmin, zmax] = wmPercentileRange(values);
+
+  const trace = {
+    type: 'choropleth',
+    locationmode: 'country names',
+    locations,
+    z: values,
+    text: hoverText,
+    hovertemplate: '%{text}',
+    colorscale: metric.colorscale,
+    reversescale: metric.reversescale,
+    zmin, zmax,
+    marker: {
+      line: { color: '#0b1324', width: 0.5 }
+    },
+    colorbar: {
+      title: { text: metric.label, font: { color: '#9fb3d1', size: 12 } },
+      tickfont: { color: '#9fb3d1', size: 11 },
+      outlinewidth: 0,
+      thickness: 14,
+      len: 0.85,
+      bgcolor: 'rgba(0,0,0,0)',
+      tickformat: metricKey === 'd2080' ? '.1f' : 'd'
+    }
+  };
+
+  const layout = {
+    paper_bgcolor: '#0b1324',
+    plot_bgcolor: '#0b1324',
+    margin: { l: 0, r: 0, t: 6, b: 0 },
+    geo: {
+      bgcolor: '#0b1324',
+      showframe: false,
+      showcoastlines: true,
+      coastlinecolor: '#1a2440',
+      showland: true,
+      landcolor: '#101a33',
+      showocean: true,
+      oceancolor: '#080f20',
+      showcountries: true,
+      countrycolor: '#1a2440',
+      projection: { type: 'natural earth' },
+      lataxis: { range: [-58, 85] }
+    },
+    annotations: [{
+      x: 0.995, y: 0.02,
+      xref: 'paper', yref: 'paper',
+      xanchor: 'right', yanchor: 'bottom',
+      text: '@LeRaffl',
+      showarrow: false,
+      font: { size: 11, color: 'rgba(159,179,209,0.55)' }
+    }]
+  };
+
+  Plotly.newPlot('worldMapPlot', [trace], layout, { responsive: true, displaylogo: false });
+
+  // Explainer text
+  const expl = document.getElementById('wmExplainer');
+  if (expl) expl.innerHTML = metric.explain;
+
+  // Leaders + laggards: sort by the picked metric, lowest (earliest /
+  // fastest) first for "leaders", highest last for "laggards".
+  const sortable = rows
+    .map(r => ({ r, v: metric.pick(r) }))
+    .filter(x => isFinite(x.v))
+    .sort((a,b) => a.v - b.v);
+
+  const top = sortable.slice(0, 5);
+  const bot = sortable.slice(-5).reverse();
+
+  const topList = document.getElementById('wmTopList');
+  const botList = document.getElementById('wmBottomList');
+  if (topList) topList.innerHTML = top.map(x =>
+    `<li><b>${x.r.country}</b> — ${metric.fmt(x.v)}${metric.hoverSuffix}</li>`
+  ).join('');
+  if (botList) botList.innerHTML = bot.map(x =>
+    `<li><b>${x.r.country}</b> — ${metric.fmt(x.v)}${metric.hoverSuffix}</li>`
+  ).join('');
+}
+
+let WORLDMAP_INITED = false;
+async function initWorldMap(){
+  if (WORLDMAP_INITED) { wmRender(); return; }
+  WORLDMAP_INITED = true;
+  const dbg = document.getElementById('worldMapDebugBox');
+  try {
+    await ensurePlotly();
+    await wmLoadData();
+    if (!WORLDMAP_STATE.rows.length){
+      if (dbg){ dbg.style.display = 'block'; dbg.textContent = 'World map: params.csv loaded but produced 0 countries after variant filter.'; }
+      return;
+    }
+    document.querySelectorAll('input[name="wmMetric"]').forEach(radio => {
+      radio.addEventListener('change', wmRender);
+    });
+    wmRender();
+  } catch (err){
+    WORLDMAP_INITED = false;
+    if (dbg){ dbg.style.display = 'block'; dbg.textContent = 'World map init failed: ' + (err?.message || err); }
+    console.error('[worldmap]', err);
+  }
+}
 </script>
 </body>
 </html>
