@@ -316,14 +316,12 @@ th.sortable.desc::after{content:" ↓"}
   background: #11203d;
 }
 .fc-sub.is-inactive {
-  opacity: 0.45;
-  filter: saturate(0.5);
+  opacity: 0.6;
+  filter: saturate(0.6);
 }
-.fc-sub.is-inactive input,
-.fc-sub.is-inactive select,
-.fc-sub.is-inactive .info-tip {
-  pointer-events: none;
-}
+/* Inputs in inactive sub-cards stay fully interactive — otherwise the
+   control that enables the sub-card (e.g. the decay floor) would be
+   unreachable. Visual mute only. */
 
 .faq-tag {
   font-size: 11px;
