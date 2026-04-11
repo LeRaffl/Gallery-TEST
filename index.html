@@ -647,7 +647,7 @@ th.sortable.desc::after{content:" ↓"}
     <div style="display:flex; align-items:center; gap:6px;">
       <label for="fleetInflowDecayFloor">Inflow decay floor</label>
       <span class="info-tip"
-        data-tip="Robotaxi / shared-mobility scenario: the annual inflow shrinks exponentially toward this floor, expressed as a fraction of the start inflow. Example: 0.10 means inflow converges to 10% of today's value. Set to 1 to disable the decay (default).">
+        data-tip="Robotaxi / shared-mobility scenario: the annual inflow shrinks exponentially toward this floor, expressed as a fraction of the start inflow. Example: 0.10 means inflow converges to 10% of today's value. Set to 1 to disable the decay (default). As the inflow shrinks, the BEV share of whatever new vehicles remain rises toward 100% — same control, both effects coupled.">
         i
       </span>
     </div>
@@ -1819,6 +1819,29 @@ function inflowDecayMultiplier(decay, year){
   return decay.floor + (1 - decay.floor) * Math.exp(-decay.lambda * dt);
 }
 
+// Robotaxi composition shift (coupled to the inflow decay).
+//
+// Whenever the decay shrinks the *quantity* of new vehicles by factor
+// `decayMult`, the share of what remains shifts toward BEV by the same
+// amount, so the surviving inflow electrifies as the fleet shrinks. This
+// keeps the scenario "fewer cars, but the cars that ARE bought are
+// (almost) all electric" expressible with a single set of controls.
+//
+// Math: bev_new = bev + (1 - bev) * (1 - decayMult)
+//       ice_new = ice * decayMult
+//       nonBevNonIce_new = nonBevNonIce * decayMult   (preserved by identity)
+//
+// decayMult = 1 (no decay) → unchanged shares.
+// decayMult → floor      → bev share → close to 1.
+function shiftSharesForDecay(bevShare, iceShare, decayMult){
+  if (decayMult >= 1) return { bevShare, iceShare };
+  if (!isFinite(bevShare)) return { bevShare, iceShare };
+  return {
+    bevShare: bevShare + (1 - bevShare) * (1 - decayMult),
+    iceShare: isFinite(iceShare) ? iceShare * decayMult : iceShare
+  };
+}
+
 // ----- Per-vintage Weibull survival -----
 //
 // Each vehicle category has a survival function S(age) = exp(-(age/scale)^shape).
@@ -2174,8 +2197,11 @@ function projectCountryFleet(country, startYear, endYear, options){
     const annualInflowBase = getCountryAnnualInflow(country);
     const decayMult = inflowDecayMultiplier(inflowDecay, year);
     const annualInflow = annualInflowBase * inflowMultiplier * decayMult;
-    const bevShare = modeledBevShareForYear(country, year + 0.5);
-    const iceShare = modeledIceShareForYear(country, year + 0.5);
+    const rawBevShare = modeledBevShareForYear(country, year + 0.5);
+    const rawIceShare = modeledIceShareForYear(country, year + 0.5);
+    const shifted = shiftSharesForDecay(rawBevShare, rawIceShare, decayMult);
+    const bevShare = shifted.bevShare;
+    const iceShare = shifted.iceShare;
     let inflowBEV = 0;
     let inflowNonBEV = 0;
     let inflowOthers = 0;
@@ -2266,8 +2292,11 @@ function projectCountryFleetVintage(country, startYear, endYear, options){
     const annualInflowBase = getCountryAnnualInflow(country);
     const decayMult = inflowDecayMultiplier(inflowDecay, year);
     const annualInflow = annualInflowBase * inflowMultiplier * decayMult;
-    const bevShare = modeledBevShareForYear(country, year + 0.5);
-    const iceShare = modeledIceShareForYear(country, year + 0.5);
+    const rawBevShare = modeledBevShareForYear(country, year + 0.5);
+    const rawIceShare = modeledIceShareForYear(country, year + 0.5);
+    const shifted = shiftSharesForDecay(rawBevShare, rawIceShare, decayMult);
+    const bevShare = shifted.bevShare;
+    const iceShare = shifted.iceShare;
 
     let inflowBEV = 0, inflowNonBEV = 0, inflowOthers = 0;
     if (isFinite(bevShare)) {
@@ -2952,7 +2981,16 @@ const FAQ_DATA = [
   { tag: 'model', label: 'Model', q: 'What is the inflow decay (robotaxi scenario)?',
     answers: [
       'Robotaxis and shared autonomous fleets replace privately owned cars: one robotaxi serves several people, so the total number of vehicles registered each year shrinks. The inflow decay models exactly that — it lets the annual inflow of new vehicles fall over time toward a floor (e.g. 10% of today\u2019s value).',
-      'Setting the floor to <b>1</b> turns the decay off completely (the previous behaviour). Setting the floor below 1 activates a smooth exponential decline starting from the chosen year.'
+      'Setting the floor to <b>1</b> turns the decay off completely (the previous behaviour). Setting the floor below 1 activates a smooth exponential decline starting from the chosen year.',
+      '<b>Coupled effect — composition shift:</b> robotaxi fleets are predominantly electric, so it would be inconsistent to shrink the inflow but keep its mix of BEV / diesel / petrol the same. Whenever the decay is active, the BEV share of whatever new vehicles remain is shifted toward 100% by the same amount the quantity has shrunk. One control, both effects: <b>fewer cars, and the cars that ARE bought are (almost) all electric</b>.'
+    ] },
+  { tag: 'model', label: 'Model', q: 'What is the formula for the robotaxi composition shift?',
+    answers: [
+      'Let <b>m = decay(year)</b> be the inflow decay multiplier (1 = no decay, falling toward the floor over time). The model takes the modeled raw shares of the inflow and rebalances them as:',
+      '<b>bev\u2032 = bev + (1 \u2212 bev) \u00d7 (1 \u2212 m)</b><br><b>ice\u2032 = ice \u00d7 m</b><br><b>nonBevNonIce\u2032 = nonBevNonIce \u00d7 m</b>',
+      'Sanity checks:<br>\u2022 m = 1 (no decay): bev\u2032 = bev, ice\u2032 = ice. Nothing changes.<br>\u2022 m = 0 (extreme robotaxi limit): bev\u2032 = 1, ice\u2032 = 0. The surviving inflow is 100% electric.<br>\u2022 The three shares always sum to 1.',
+      'Worked example. Today bev = 0.30, ice = 0.55, decay m = 0.40 (60% of the inflow has been removed). Then bev\u2032 = 0.30 + 0.70 \u00d7 0.60 = 0.72 and ice\u2032 = 0.55 \u00d7 0.40 = 0.22. So 60% fewer new cars, but 72% of them are electric instead of 30%.',
+      '<b>Limitation:</b> the composition shift uses the same speed and start year as the quantity decay because they share one control. If you want them decoupled (e.g. fleet shrinks but composition stays mixed) the existing inflow share controls in the Builder tab can be tuned independently \u2014 the shift here is on top of those, not a replacement.'
     ] },
   { tag: 'model', label: 'Model', q: 'What is the formula for the inflow decay?',
     answers: [
