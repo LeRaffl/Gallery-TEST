@@ -316,14 +316,12 @@ th.sortable.desc::after{content:" ↓"}
   background: #11203d;
 }
 .fc-sub.is-inactive {
-  opacity: 0.45;
-  filter: saturate(0.5);
+  opacity: 0.6;
+  filter: saturate(0.6);
 }
-.fc-sub.is-inactive input,
-.fc-sub.is-inactive select,
-.fc-sub.is-inactive .info-tip {
-  pointer-events: none;
-}
+/* Inputs in inactive sub-cards stay fully interactive — otherwise the
+   control that enables the sub-card (e.g. the decay floor) would be
+   unreachable. Visual mute only. */
 
 .faq-tag {
   font-size: 11px;
@@ -752,7 +750,7 @@ th.sortable.desc::after{content:" ↓"}
         <div style="display:flex; align-items:center; gap:6px;">
           <label for="fleetInflowDecayFloor">Floor</label>
           <span class="info-tip"
-            data-tip="Fraction of today's inflow that the decay converges toward. Example: 0.10 means inflow falls toward 10% of today's value as robotaxis mature. Set to 1 to disable the decay entirely (default).">i</span>
+            data-tip="Fraction of today's inflow that the decay converges toward. Examples: 1.00 = decay disabled (default, every year sees today's inflow); 0.50 = mild shared-mobility scenario, long-run inflow halves because some households drop a second car; 0.25 = strong shift, roughly one in four of today's new cars still gets bought while the rest are replaced by shared/robotaxi trips; 0.10 = aggressive robotaxi scenario, only 10% of today's inflow remains in the long run because one autonomous vehicle serves many riders; 0.05 = extreme upper-bound 'fleet on demand' world.">i</span>
         </div>
         <input id="fleetInflowDecayFloor" type="number" min="0" max="1" step="0.01" value="1">
       </div>
@@ -768,7 +766,7 @@ th.sortable.desc::after{content:" ↓"}
         <div style="display:flex; align-items:center; gap:6px;">
           <label for="fleetInflowDecayLambda">Decay rate (&lambda;)</label>
           <span class="info-tip"
-            data-tip="Speed of the exponential decay. Half-life in years ≈ ln(2) / λ. Default 0.10 → ~7-year half-life: after 7 years the inflow has covered 50% of the way from start to floor, after ~23 years 90% of the way.">i</span>
+            data-tip="Speed of the exponential decay. Half-life in years ≈ ln(2) / λ — so a smaller λ means a slower, more gradual transition. Examples: λ = 0.05 → ~14-year half-life (very slow, transition barely visible before 2050); λ = 0.10 → ~7-year half-life (default, after 7 years the inflow has covered 50% of the way from start to floor, after ~23 years 90% of the way); λ = 0.20 → ~3.5-year half-life (fast transition, most of the change within a decade); λ = 0.35 → ~2-year half-life (very fast, fleet flips within one car generation); λ = 0.70 → ~1-year half-life (practically a step change).">i</span>
         </div>
         <input id="fleetInflowDecayLambda" type="number" min="0" max="2" step="0.01" value="0.10">
       </div>
