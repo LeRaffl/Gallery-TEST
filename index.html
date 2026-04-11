@@ -52,8 +52,10 @@ td.late {
 select,input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #273145;background:#0f1525;color:#e9eef2}
 select{appearance:none;-webkit-appearance:none;-moz-appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23e9eef2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");background-repeat:no-repeat;background-position:right 12px center;background-size:12px 12px;padding-right:36px}
 .chips{display:flex;flex-direction:column;gap:8px;margin-top:8px}
-.chip{display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid #2a3654;background:#0b1324;border-radius:10px;font-size:14px;font-weight:600;color:#eef3ff}
-.chip input[type="checkbox"]{accent-color:#4da3ff;inline-size:1.1rem;block-size:1.1rem;margin:0}
+.chip{display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid #2a3654;background:#0b1324;border-radius:10px;font-size:14px;font-weight:600;color:#eef3ff;white-space:nowrap;cursor:pointer;transition:border-color .15s,background .15s,color .15s}
+.chip:hover{border-color:#3a4a72}
+.chip input[type="checkbox"],.chip input[type="radio"]{accent-color:#4da3ff;inline-size:1.1rem;block-size:1.1rem;margin:0}
+.chip:has(input[type="radio"]:checked){border-color:#4da3ff;background:#11203d;color:#fff}
 .small{font-size:12px;opacity:.8}
 
 /* Gallery cards */
