@@ -640,7 +640,40 @@ th.sortable.desc::after{content:" ↓"}
     </div>
     <input id="fleetBevImportShare" type="number" min="0" max="1" step="0.001" value="1">
   </div>
-    
+
+  <div class="field" style="min-width:160px;">
+    <div style="display:flex; align-items:center; gap:6px;">
+      <label for="fleetInflowDecayFloor">Inflow decay floor</label>
+      <span class="info-tip"
+        data-tip="Robotaxi / shared-mobility scenario: the annual inflow shrinks exponentially toward this floor, expressed as a fraction of the start inflow. Example: 0.10 means inflow converges to 10% of today's value. Set to 1 to disable the decay (default).">
+        i
+      </span>
+    </div>
+    <input id="fleetInflowDecayFloor" type="number" min="0" max="1" step="0.01" value="1">
+  </div>
+
+  <div class="field" style="min-width:160px;">
+    <div style="display:flex; align-items:center; gap:6px;">
+      <label for="fleetInflowDecayStart">Decay start year</label>
+      <span class="info-tip"
+        data-tip="First projection year in which the inflow decay kicks in. Before this year the inflow stays at its baseline value. Default 2030.">
+        i
+      </span>
+    </div>
+    <input id="fleetInflowDecayStart" type="number" min="2020" max="2100" step="1" value="2030">
+  </div>
+
+  <div class="field" style="min-width:160px;">
+    <div style="display:flex; align-items:center; gap:6px;">
+      <label for="fleetInflowDecayLambda">Decay rate (\u03bb)</label>
+      <span class="info-tip"
+        data-tip="Speed of the exponential decay. Half-life in years \u2248 ln(2) / \u03bb. Default 0.10 \u2192 ~7-year half-life: after 7 years the inflow has covered 50% of the way from start to floor, after ~23 years 90% of the way.">
+        i
+      </span>
+    </div>
+    <input id="fleetInflowDecayLambda" type="number" min="0" max="2" step="0.01" value="0.10">
+  </div>
+
 </div>
 
   <div style="height:12px;"></div>
@@ -1720,6 +1753,30 @@ function effectiveHazard(curve, cat, projectionAge){
   return Math.min(0.5, base + extra);
 }
 
+// Inflow decay (robotaxi / shared-mobility scenario).
+// Models the assumption that fewer privately owned vehicles get registered
+// as shared autonomous fleets take over. The annual inflow shrinks
+// exponentially toward a floor (a fraction of the start inflow):
+//
+//   inflow(year) = floor + (1 - floor) * exp(-lambda * (year - decayStart))
+//
+// Returned as a unitless multiplier in [floor, 1] applied on top of the
+// existing `inflowMultiplier`. floor = 1 disables the decay (default).
+function readInflowDecay(){
+  return {
+    floor:      clamp01(safeNum(document.getElementById('fleetInflowDecayFloor')?.value, 1)),
+    startYear:  safeNum(document.getElementById('fleetInflowDecayStart')?.value, 2030),
+    lambda:     Math.max(0, safeNum(document.getElementById('fleetInflowDecayLambda')?.value, 0.10))
+  };
+}
+
+function inflowDecayMultiplier(decay, year){
+  if (decay.floor >= 1 || decay.lambda <= 0) return 1;
+  const dt = year - decay.startYear;
+  if (dt <= 0) return 1;
+  return decay.floor + (1 - decay.floor) * Math.exp(-decay.lambda * dt);
+}
+
 function getFleetCategories(){
   return ['BEV','PHEV','HEV','HYBRID','DIESEL','PETROL','OTHERS'];
 }
@@ -1961,6 +2018,10 @@ function projectCountryFleet(country, startYear, endYear, options){
   // so external callers — and tests — keep working without changes.
   const hazardCurve = options.hazardCurve
     || { base: options.hazards || {}, kneeYear: 0, slope: 0 };
+  // Inflow decay: { floor, startYear, lambda }. Defaults to floor=1
+  // (= disabled) so existing callers without the field stay unchanged.
+  const inflowDecay = options.inflowDecay
+    || { floor: 1, startYear: 2030, lambda: 0 };
   const inflowMultiplier = options.inflowMultiplier;
   const netImports = options.netImportsPerYear;
   const bevImportShare = clamp01(options.bevImportShare);
@@ -1976,7 +2037,8 @@ function projectCountryFleet(country, startYear, endYear, options){
       next[cat] = prevVal * (1 - hz);
     });
     const annualInflowBase = getCountryAnnualInflow(country);
-    const annualInflow = annualInflowBase * inflowMultiplier;
+    const decayMult = inflowDecayMultiplier(inflowDecay, year);
+    const annualInflow = annualInflowBase * inflowMultiplier * decayMult;
     const bevShare = modeledBevShareForYear(country, year + 0.5);
     const iceShare = modeledIceShareForYear(country, year + 0.5);
     let inflowBEV = 0;
@@ -2216,6 +2278,7 @@ function buildFleetPlot() {
 
   const options = {
     hazardCurve: readHazardCurve(),
+    inflowDecay: readInflowDecay(),
     inflowMultiplier: safeNum(document.getElementById('fleetInflowMultiplier')?.value, 1),
     netImportsPerYear: safeNum(document.getElementById('fleetNetImportsPerYear')?.value, 0),
     bevImportShare: clamp01(
@@ -2445,7 +2508,8 @@ document.getElementById('fleetEnableProjection')
   'fleetNetImportsPerYear',
   'fleetBevImportShare',
   'hazBEV','hazPHEV','hazHEV','hazHYBRID','hazPETROL','hazDIESEL','hazOTHERS',
-  'hazardKneeYear','hazardSlope'
+  'hazardKneeYear','hazardSlope',
+  'fleetInflowDecayFloor','fleetInflowDecayStart','fleetInflowDecayLambda'
 ].forEach(id => {
   document.getElementById(id)?.addEventListener('input', updateFleetPlotDebounced);
 });
@@ -2603,6 +2667,20 @@ const FAQ_DATA = [
       'Take the BEV count for the previous year and multiply by (1 \u2212 hz_eff). Then add this year\u2019s new BEV inflow. That\u2019s it.',
       'Norway BEV at end of 2025: 945,182. With base 0.035 and projection age 1 (so hz_eff still = 0.035):<br>2026 survivors = 945,182 \u00d7 (1 \u2212 0.035) = 912,101.<br>Add new inflow on top, and you have the 2026 BEV count.',
       'The same step is applied to every category every year. The model just repeats this loop until it reaches the end year you set.'
+    ] },
+  { tag: 'model', label: 'Model', q: 'What is the inflow decay (robotaxi scenario)?',
+    answers: [
+      'Robotaxis and shared autonomous fleets replace privately owned cars: one robotaxi serves several people, so the total number of vehicles registered each year shrinks. The inflow decay models exactly that — it lets the annual inflow of new vehicles fall over time toward a floor (e.g. 10% of today\u2019s value).',
+      'Setting the floor to <b>1</b> turns the decay off completely (the previous behaviour). Setting the floor below 1 activates a smooth exponential decline starting from the chosen year.'
+    ] },
+  { tag: 'model', label: 'Model', q: 'What is the formula for the inflow decay?',
+    answers: [
+      'For every projection year:',
+      '<b>inflow(year) = base \u00d7 inflowMultiplier \u00d7 decay(year)</b>',
+      '<b>decay(year) = floor + (1 \u2212 floor) \u00d7 exp(\u2212\u03bb \u00d7 max(0, year \u2212 startYear))</b>',
+      'Inputs:<br>\u2022 <b>floor</b> \u2014 fraction of today\u2019s inflow that the decay converges toward (default 1 = disabled; try 0.10 for "10% of today" once robotaxis are mature).<br>\u2022 <b>startYear</b> \u2014 first year the decay applies (default 2030).<br>\u2022 <b>\u03bb</b> \u2014 decay speed. Half-life in years \u2248 ln(2) / \u03bb. Default 0.10 means a ~7-year half-life: after 7 years the inflow has covered 50% of the way from start to floor, after ~23 years 90% of the way.',
+      'Worked example: floor = 0.10, startYear = 2030, \u03bb = 0.10.<br>2030: decay = 0.10 + 0.90 \u00d7 exp(0) = 1.00 (just kicked in).<br>2037: decay = 0.10 + 0.90 \u00d7 exp(\u22120.7) \u2248 0.547 (half-life reached).<br>2050: decay = 0.10 + 0.90 \u00d7 exp(\u22122.0) \u2248 0.222.<br>2070: decay \u2248 0.122 (almost at the floor).',
+      '<b>Effect on the plot:</b> BEV stock keeps growing but more slowly (less inflow to feed it). ICE stocks shrink faster than they would otherwise, because they keep losing vehicles to the hazard rate while the smaller inflow no longer fully replaces them. After ~30 years the total fleet sits roughly at floor \u00d7 today\u2019s size, plus whatever has not yet been hazarded out.'
     ] },
   { tag: 'model', label: 'Model', q: 'How are fleet projections calculated?',
     answers: ['Fleet projections combine the last observed fleet composition with modeled inflow of new vehicles and category-specific attrition rates.'] },
