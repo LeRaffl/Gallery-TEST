@@ -1071,7 +1071,7 @@ th.sortable.desc::after{content:" ↓"}
       <div id="worldMapPlot" style="height:620px"></div>
       <p class="small" style="margin:4px 14px 10px; color:#6f86ad;">
         Color scale is clipped at the 5th and 95th percentile so regular countries get a useful gradient.
-        <b style="color:#f8ff4a">Yellow</b> = pioneers that have already reached the threshold.
+        <b style="color:#00e5ff">Cyan</b> = pioneers that have already reached the threshold.
         <b style="color:#d65aff">Purple</b> = countries whose fitted model does not project a transition within a reasonable horizon.
         Exact values always live in the hover tooltip.
       </p>
@@ -1088,7 +1088,7 @@ th.sortable.desc::after{content:" ↓"}
           <ol id="wmBottomList" style="margin:0; padding:0 0 0 22px; color:#eef3ff; font-size:13px; line-height:1.7;"></ol>
         </div>
         <div>
-          <h3 style="margin:0 0 10px; font-size:13px; color:#f8ff4a; letter-spacing:0.3px; text-transform:uppercase;">Pioneers</h3>
+          <h3 style="margin:0 0 10px; font-size:13px; color:#00e5ff; letter-spacing:0.3px; text-transform:uppercase;">Pioneers</h3>
           <ul id="wmPioneerList" style="margin:0 0 0; padding:0 0 0 22px; color:#eef3ff; font-size:13px; line-height:1.7;"></ul>
         </div>
         <div>
@@ -1097,7 +1097,7 @@ th.sortable.desc::after{content:" ↓"}
         </div>
       </div>
       <p class="small" style="margin:12px 0 0; color:#6f86ad;">
-        Leaders / Laggards are the top and bottom five <em>normal</em> countries for the selected metric. <b style="color:#f8ff4a">Pioneers</b> have already reached the threshold at the time of the last data point. <b style="color:#d65aff">No transition</b> countries have a fitted Weibull that does not reach the threshold within a reasonable horizon — usually because v2 is very small (flat curve) or the model is still in its early phase.
+        Leaders / Laggards are the top and bottom five <em>normal</em> countries for the selected metric. <b style="color:#00e5ff">Pioneers</b> have already reached the threshold at the time of the last data point. <b style="color:#d65aff">No transition</b> countries have a fitted Weibull that does not reach the threshold within a reasonable horizon — usually because v2 is very small (flat curve) or the model is still in its early phase.
       </p>
     </div>
 
@@ -3724,7 +3724,7 @@ function wmRender(){
     z: pioneer.map(() => 1),
     text: pioneer.map(d => wmHover(d.r, mode, pct, pct2, d.v)),
     hovertemplate: '%{text}',
-    colorscale: [[0, '#f8ff4a'], [1, '#f8ff4a']],
+    colorscale: [[0, '#00e5ff'], [1, '#00e5ff']],
     zmin: 0, zmax: 1,
     showscale: false,
     marker: { line: markerLine }
