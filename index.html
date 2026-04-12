@@ -387,6 +387,9 @@ th.sortable.desc::after{content:" ↓"}
 /* FAQ items: rendered from FAQ_DATA. Replaces the old per-card inline styles. */
 .faq-item { margin-top: 12px; }
 .faq-q { margin-top: 0; }
+
+/* Uniform section heading margin across all tabs */
+section.tab .container > h2 { margin: 6px 0 12px; }
 </style>
   
 
@@ -419,7 +422,7 @@ th.sortable.desc::after{content:" ↓"}
 <!-- FAQ TAB -->
 <section id="tab-faq" class="tab">
   <div class="container">
-    <h2 style="margin:2px 0 16px">FAQ</h2>
+    <h2>FAQ</h2>
     <input id="faqSearch" placeholder="Search FAQ..." style="width:100%;padding:8px;margin-bottom:14px">
     <!-- Cards are rendered from FAQ_DATA in the script block below. -->
     <div id="faqList"></div>
@@ -486,7 +489,7 @@ th.sortable.desc::after{content:" ↓"}
   <!-- THRESHOLDS TAB -->
   <section id="tab-thresholds" class="tab">
     <div class="container">
-      <h2 style="margin:6px 0 12px">Thresholds (years)</h2>
+      <h2>Thresholds (years)</h2>
       <div class="toolbar">
         <div class="field" style="min-width:320px">
           <label for="variantMulti">Variant filter</label>
@@ -506,7 +509,7 @@ th.sortable.desc::after{content:" ↓"}
         <div class="spacer"></div>
 
         <div class="export-box">
-          <label class="export-title">Export current table</label>
+          <div class="export-title">Export current table</div>
           <div class="export-actions">
             <button id="exportCsv" class="btn">CSV</button>
             <button id="exportCsvEU" class="btn">CSV (EU)</button>
@@ -533,7 +536,7 @@ th.sortable.desc::after{content:" ↓"}
   <!-- DURATIONS TAB -->
   <section id="tab-durations" class="tab">
     <div class="container">
-      <h2 style="margin:6px 0 12px">Durations (time to move between thresholds)</h2>
+      <h2>Durations (time to move between thresholds)</h2>
       <div class="toolbar">
         <div class="field" style="min-width:320px"><label for="variantMultiD">Variant filter (multi-select)</label><select id="variantMultiD" multiple size="6"></select></div>
         <div class="field"><label for="customFrom">Custom from (%)</label><input id="customFrom" type="number" min="1" max="98" step="1" value="25" /></div>
@@ -556,16 +559,16 @@ th.sortable.desc::after{content:" ↓"}
         Indonesia parameters yield almost 0, and need to receice a minimum parameter value. 
         Indonesia can thus be off in the tables.
       </p>
-      <div class="container tablepad">
-        <div id="durationsMount" class="tablecard"><div style="padding:14px">Loading <code>params.csv</code>…</div></div>
-      </div>
+    </div>
+    <div class="container tablepad">
+      <div id="durationsMount" class="tablecard"><div style="padding:14px">Loading <code>params.csv</code>…</div></div>
     </div>
   </section>
 
   <!-- BUILDER TAB -->
 <section id="tab-builder" class="tab">
     <div class="container">
-      <h2 style="margin:6px 0 12px">Region / World Curve Builder</h2>
+      <h2>Region / World Curve Builder</h2>
       <div class="toolbar">
         <div class="field" style="min-width:320px">
           <label>Countries (multi‑select)</label>
@@ -667,10 +670,10 @@ th.sortable.desc::after{content:" ↓"}
     <div class="field">
       <label>View Mode</label>
       <div style="display: flex; flex-direction: column; gap: 8px;">
-        <label class="chip" style="padding: 8px 12px; font-size: 13px; justify-content: flex-start; white-space: nowrap;">
+        <label class="chip">
           <input type="radio" name="fleetMode" value="absolute" checked> Absolute
         </label>
-        <label class="chip" style="padding: 8px 12px; font-size: 13px; justify-content: flex-start; white-space: nowrap;">
+        <label class="chip">
           <input type="radio" name="fleetMode" value="relative"> Relative (%)
         </label>
       </div>
@@ -996,7 +999,7 @@ th.sortable.desc::after{content:" ↓"}
 <!-- WORLD MAP TAB -->
 <section id="tab-worldmap" class="tab">
   <div class="container">
-    <h2 style="margin:2px 0 6px">World Map</h2>
+    <h2>World Map</h2>
     <p class="small" style="margin:0 0 14px">
       Same country data as the <b>Thresholds</b> and <b>Durations</b> tabs, painted on a world map.
       Only the default (whole-market, passenger-car) variant is shown.
