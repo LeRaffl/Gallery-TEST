@@ -319,6 +319,32 @@ th.sortable.desc::after{content:" ↓"}
   opacity: 0.6;
   filter: saturate(0.6);
 }
+
+/* World-map region / zoom buttons */
+.wm-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  padding:6px 12px;
+  border:1px solid #2a3654;
+  background:#0b1324;
+  color:#cfe1ff;
+  border-radius:8px;
+  font:inherit;
+  font-size:12px;
+  font-weight:600;
+  cursor:pointer;
+  transition:border-color .15s,background .15s,color .15s;
+}
+.wm-btn:hover{border-color:#4da3ff;background:#11203d;color:#fff}
+.wm-btn.is-active{border-color:#4da3ff;background:#11203d;color:#fff}
+.wm-btn-zoom{
+  min-width:34px;
+  justify-content:center;
+  padding:6px 10px;
+  font-size:14px;
+  font-weight:700;
+}
 /* Inputs in inactive sub-cards stay fully interactive — otherwise the
    control that enables the sub-card (e.g. the decay floor) would be
    unreachable. Visual mute only. */
@@ -980,49 +1006,98 @@ th.sortable.desc::after{content:" ↓"}
       <div class="small" style="margin-bottom:6px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
         <span>Metric</span>
         <span class="info-tip"
-          data-tip="Which number is painted on every country. Same underlying Weibull model as the Thresholds and Durations tabs — this view just rearranges the data on a map so the geographic pattern is visible at a glance.">i</span>
+          data-tip="Pick the metric painted on every country. Same underlying Weibull model as the Thresholds and Durations tabs — this view just rearranges the data on a map so the geographic pattern is visible at a glance. You can change the threshold(s) freely to match whatever column in Thresholds / Durations you want to see spatially.">i</span>
       </div>
       <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
         <label class="chip">
-          <input type="radio" name="wmMetric" value="year80" checked>
-          Year reaching 80% BEV (inflow)
+          <input type="radio" name="wmMode" value="year" checked>
+          Year reaching threshold
         </label>
         <label class="chip">
-          <input type="radio" name="wmMetric" value="d2080">
-          20 → 80 % transition time
-        </label>
-        <label class="chip">
-          <input type="radio" name="wmMetric" value="year50">
-          Year reaching 50% BEV (inflow)
-        </label>
-        <label class="chip">
-          <input type="radio" name="wmMetric" value="year20">
-          Year reaching 20% BEV (inflow)
+          <input type="radio" name="wmMode" value="duration">
+          Transition time between thresholds
         </label>
       </div>
-      <p class="small" id="wmExplainer" style="margin:12px 0 0; color:#9fb3d1; line-height:1.5;"></p>
+
+      <div id="wmInputsYear" style="display:flex; flex-wrap:wrap; gap:14px; align-items:center; margin-top:12px;">
+        <div class="field" style="min-width:120px;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <label for="wmThreshold">Threshold (% BEV, inflow)</label>
+            <span class="info-tip"
+              data-tip="BEV share of new registrations at which the map 'fires'. 80% matches the default Thresholds column; 50% is the halfway pivot; 95% shows the last stragglers. Integer from 1 to 99.">i</span>
+          </div>
+          <input id="wmThreshold" type="number" min="1" max="99" step="1" value="80" style="width:90px">
+        </div>
+      </div>
+
+      <div id="wmInputsDuration" style="display:none; flex-wrap:wrap; gap:14px; align-items:center; margin-top:12px;">
+        <div class="field" style="min-width:120px;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <label for="wmThresholdFrom">From (%)</label>
+            <span class="info-tip"
+              data-tip="Lower bound of the transition window. 20% matches the default Durations column (20 → 80 %). Must be strictly smaller than the upper bound.">i</span>
+          </div>
+          <input id="wmThresholdFrom" type="number" min="1" max="98" step="1" value="20" style="width:90px">
+        </div>
+        <div class="field" style="min-width:120px;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <label for="wmThresholdTo">To (%)</label>
+            <span class="info-tip"
+              data-tip="Upper bound of the transition window. 80% matches the default Durations column. Must be strictly larger than the lower bound.">i</span>
+          </div>
+          <input id="wmThresholdTo" type="number" min="2" max="99" step="1" value="80" style="width:90px">
+        </div>
+      </div>
+
+      <p class="small" id="wmExplainer" style="margin:14px 0 0; color:#9fb3d1; line-height:1.5;"></p>
     </div>
 
-    <div class="card" style="padding:6px 6px 10px;">
-      <div id="worldMapPlot" style="height:600px"></div>
-      <p class="small" style="margin:2px 12px 2px; color:#6f86ad;">
-        Color scale is clipped at the 5th and 95th percentile so outliers (hi, Norway 👋) don't flatten the rest of the world. Exact values always live in the hover tooltip.
+    <div class="card" style="padding:0;">
+      <div id="wmRegionBar" style="display:flex; flex-wrap:wrap; gap:6px; padding:10px 12px 6px; align-items:center; border-bottom:1px solid #1a2440;">
+        <span class="small" style="margin-right:4px; opacity:0.8;">View</span>
+        <button class="wm-btn" data-region="world">🌍 World</button>
+        <button class="wm-btn" data-region="europe">Europe</button>
+        <button class="wm-btn" data-region="namerica">N. America</button>
+        <button class="wm-btn" data-region="samerica">S. America</button>
+        <button class="wm-btn" data-region="asia">Asia</button>
+        <button class="wm-btn" data-region="africa">Africa</button>
+        <button class="wm-btn" data-region="oceania">Oceania</button>
+        <span style="flex:1"></span>
+        <span class="small" style="margin-right:4px; opacity:0.8;">Zoom</span>
+        <button class="wm-btn wm-btn-zoom" data-zoom="-1" title="Zoom out">−</button>
+        <button class="wm-btn wm-btn-zoom" data-zoom="+1" title="Zoom in">+</button>
+        <button class="wm-btn wm-btn-zoom" data-zoom="reset" title="Reset view">⟲</button>
+      </div>
+      <div id="worldMapPlot" style="height:620px"></div>
+      <p class="small" style="margin:4px 14px 10px; color:#6f86ad;">
+        Color scale is clipped at the 5th and 95th percentile so regular countries get a useful gradient.
+        <b style="color:#f8ff4a">Yellow</b> = pioneers that have already reached the threshold.
+        <b style="color:#d65aff">Purple</b> = countries whose fitted model does not project a transition within a reasonable horizon.
+        Exact values always live in the hover tooltip.
       </p>
     </div>
 
     <div class="card" style="margin-top:14px;">
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:20px;">
         <div>
-          <h3 style="margin:0 0 10px; font-size:14px; color:#7fe0b0; letter-spacing:0.3px; text-transform:uppercase;">Leaders</h3>
+          <h3 style="margin:0 0 10px; font-size:13px; color:#7fe0b0; letter-spacing:0.3px; text-transform:uppercase;">Leaders</h3>
           <ol id="wmTopList" style="margin:0; padding:0 0 0 22px; color:#eef3ff; font-size:13px; line-height:1.7;"></ol>
         </div>
         <div>
-          <h3 style="margin:0 0 10px; font-size:14px; color:#ffb07f; letter-spacing:0.3px; text-transform:uppercase;">Laggards</h3>
+          <h3 style="margin:0 0 10px; font-size:13px; color:#ffb07f; letter-spacing:0.3px; text-transform:uppercase;">Laggards</h3>
           <ol id="wmBottomList" style="margin:0; padding:0 0 0 22px; color:#eef3ff; font-size:13px; line-height:1.7;"></ol>
+        </div>
+        <div>
+          <h3 style="margin:0 0 10px; font-size:13px; color:#f8ff4a; letter-spacing:0.3px; text-transform:uppercase;">Pioneers</h3>
+          <ul id="wmPioneerList" style="margin:0 0 0; padding:0 0 0 22px; color:#eef3ff; font-size:13px; line-height:1.7;"></ul>
+        </div>
+        <div>
+          <h3 style="margin:0 0 10px; font-size:13px; color:#d65aff; letter-spacing:0.3px; text-transform:uppercase;">No transition</h3>
+          <ul id="wmStalledList" style="margin:0 0 0; padding:0 0 0 22px; color:#eef3ff; font-size:13px; line-height:1.7;"></ul>
         </div>
       </div>
       <p class="small" style="margin:12px 0 0; color:#6f86ad;">
-        Top and bottom five for the selected metric. Based on the fitted Weibull model — countries that the model projects as "no transition" within a reasonable horizon are excluded.
+        Leaders / Laggards are the top and bottom five <em>normal</em> countries for the selected metric. <b style="color:#f8ff4a">Pioneers</b> have already reached the threshold at the time of the last data point. <b style="color:#d65aff">No transition</b> countries have a fitted Weibull that does not reach the threshold within a reasonable horizon — usually because v2 is very small (flat curve) or the model is still in its early phase.
       </p>
     </div>
 
@@ -3319,13 +3394,22 @@ document.addEventListener('keydown', (e) => {
 //
 // The world map reuses the same Weibull-fit data that Thresholds and
 // Durations already load from params.csv. We only take the "whole"
-// (passenger-car / whole-market) variant of each country, derive the
-// four metrics we paint, and hand them to a Plotly choropleth.
+// (passenger-car / whole-market) variant of each country, cache the
+// raw v1/v2/t0/baseline, and compute year-at-threshold / duration
+// on demand so the user can pick any threshold and we don't have to
+// re-parse the CSV for every click.
+//
+// Countries are painted as one of three categories:
+//   - "normal"   — continuous green → orange colorscale (P5..P95 clip)
+//   - "pioneer"  — already past the threshold by the data_per date,
+//                   painted bright yellow to signal "in a different league"
+//   - "stalled"  — Weibull does not project a transition within a
+//                   reasonable horizon, painted purple to signal
+//                   "not slow, but different"
 //
 // Plotly understands full country names when locationmode is set to
-// 'country names', so most rows just pass through. A tiny alias table
-// below catches the handful of names where params.csv and Plotly's
-// Natural Earth dataset disagree (Türkiye, USA, UK, Korea, ...).
+// 'country names'. A small alias table handles the handful of names
+// where params.csv and Plotly's Natural Earth dataset disagree.
 
 const WORLDMAP_STATE = {
   loaded: false,
@@ -3413,87 +3497,78 @@ function wmBuildRows(csvRows){
 
   const out = [];
   for (const r of byCountry.values()){
-    const v1 = normNumber(r.v1);
-    const v2 = normNumber(r.v2);
-    const t0 = getT0Years(r);
-    const baseYear = normNumber(r.baseline_year);
-    const baseDate = r.baseline_date || '';
-
-    // Solve the Weibull for 20, 50, 80 % and convert to absolute year.
-    function yearAt(y){
-      const res = inv_x_years(y, v1, v2, t0);
-      if (!res || !isFinite(res.x)) return NaN;
-      const dstr = yearsIndexToDate(res.x, baseDate, baseYear);
-      if (!dstr) return NaN;
-      const parsed = Date.parse(dstr);
-      if (!isFinite(parsed)) return NaN;
-      const yFrac = new Date(parsed).getUTCFullYear()
-        + (new Date(parsed).getUTCMonth() + (new Date(parsed).getUTCDate()-1)/31) / 12;
-      // Anything past 2199 is the model saying "no transition".
-      if (yFrac > 2199) return NaN;
-      return yFrac;
-    }
-
-    const y20 = yearAt(0.20);
-    const y50 = yearAt(0.50);
-    const y80 = yearAt(0.80);
-    const d2080 = (isFinite(y20) && isFinite(y80)) ? (y80 - y20) : NaN;
-
     out.push({
-      country: wmNormalizeCountry(r.country),
-      dataPer: r._dp || '',
-      year20: y20,
-      year50: y50,
-      year80: y80,
-      d2080:  d2080
+      country:  wmNormalizeCountry(r.country),
+      dataPer:  r._dp || '',
+      v1:       normNumber(r.v1),
+      v2:       normNumber(r.v2),
+      t0:       getT0Years(r),
+      baseYear: normNumber(r.baseline_year),
+      baseDate: r.baseline_date || ''
     });
   }
-  // Sort for deterministic list order later.
   out.sort((a,b) => a.country.localeCompare(b.country));
   return out;
 }
 
-// Metric definitions for the chip bar.
-const WM_METRICS = {
-  year80: {
-    label: 'Year reaching 80% BEV (inflow)',
-    pick:  r => r.year80,
-    // colorscale goes from "good/early" to "bad/late"
-    colorscale: [[0,'#1f8f4d'],[0.3,'#7fe0b0'],[0.55,'#ffd27f'],[0.8,'#ff8c5a'],[1,'#b04020']],
-    reversescale: false,
-    fmt: v => isFinite(v) ? wmYearFmt(v) : '—',
-    hoverSuffix: '',
-    explain: 'Projected calendar year in which <b>80%</b> of newly registered vehicles are electric in each country, based on the Weibull fit from the Thresholds tab. Greener = earlier, warmer = later. Countries the model cannot fit (or where the transition runs past 2199) are left blank.'
-  },
-  year50: {
-    label: 'Year reaching 50% BEV (inflow)',
-    pick:  r => r.year50,
-    colorscale: [[0,'#1f8f4d'],[0.3,'#7fe0b0'],[0.55,'#ffd27f'],[0.8,'#ff8c5a'],[1,'#b04020']],
-    reversescale: false,
-    fmt: v => isFinite(v) ? wmYearFmt(v) : '—',
-    hoverSuffix: '',
-    explain: 'Projected calendar year in which <b>50%</b> of newly registered vehicles are electric. The halfway point — a more robust "where is the pivot?" indicator than 80% because small countries hit 50% long before they saturate.'
-  },
-  year20: {
-    label: 'Year reaching 20% BEV (inflow)',
-    pick:  r => r.year20,
-    colorscale: [[0,'#1f8f4d'],[0.3,'#7fe0b0'],[0.55,'#ffd27f'],[0.8,'#ff8c5a'],[1,'#b04020']],
-    reversescale: false,
-    fmt: v => isFinite(v) ? wmYearFmt(v) : '—',
-    hoverSuffix: '',
-    explain: 'Projected calendar year in which <b>20%</b> of newly registered vehicles are electric. This is where the S-curve really starts climbing — it is the historical "early adopter" milestone.'
-  },
-  d2080: {
-    label: '20 → 80 % transition time',
-    pick:  r => r.d2080,
-    // shorter = greener (better)
-    colorscale: [[0,'#1f8f4d'],[0.3,'#7fe0b0'],[0.55,'#ffd27f'],[0.8,'#ff8c5a'],[1,'#b04020']],
-    reversescale: false,
-    fmt: v => isFinite(v) ? wmDurationFmt(v) : '—',
-    hoverSuffix: '',
-    explain: 'How long the <b>core transition</b> takes in each country — the number of years between passing 20% BEV share of new registrations and passing 80%. Shorter (greener) means the S-curve is steeper; longer (warmer) means the transition drags.'
+// Compute the calendar year (as a float: 2027.5 = mid-2027) in which
+// the fitted Weibull reaches BEV share y \in (0,1), or NaN if the
+// model does not produce a finite answer. Pure function so we can
+// call it for any threshold, not just the cached 20/50/80.
+function wmYearAt(row, y){
+  const res = inv_x_years(y, row.v1, row.v2, row.t0);
+  if (!res || !isFinite(res.x)) return NaN;
+  const dstr = yearsIndexToDate(res.x, row.baseDate, row.baseYear);
+  if (!dstr) return NaN;
+  const parsed = Date.parse(dstr);
+  if (!isFinite(parsed)) return NaN;
+  const d = new Date(parsed);
+  return d.getUTCFullYear()
+    + (d.getUTCMonth() + (d.getUTCDate() - 1) / 31) / 12;
+}
+
+// Anchor "pioneer" to the data_per date of each row (fallback 2025).
+// Countries whose fitted year-at-threshold is earlier than this are
+// labelled pioneers — they had already hit the threshold by their
+// most recent data point.
+function wmPioneerCutoff(row){
+  const dp = row.dataPer || '';
+  if (/^\d{4}-\d{2}$/.test(dp)) {
+    const y = parseInt(dp.slice(0,4), 10);
+    const m = parseInt(dp.slice(5,7), 10);
+    return y + (m - 1) / 12;
   }
-};
+  return 2025;
+}
+
+// 'normal' | 'pioneer' | 'stalled'. Duration mode never produces a
+// "pioneer" — it can only be normal or stalled (at least one endpoint
+// unreachable within the fitted horizon).
+function wmClassify(mode, value, row){
+  if (!isFinite(value)) return 'stalled';
+  if (mode === 'year'){
+    if (value > 2199) return 'stalled';
+    if (value < wmPioneerCutoff(row)) return 'pioneer';
+    return 'normal';
+  }
+  if (Math.abs(value) > 200) return 'stalled';
+  return 'normal';
+}
+
+function wmComputeMetric(row, mode, pct, pct2){
+  if (mode === 'year'){
+    return wmYearAt(row, pct / 100);
+  }
+  const from = wmYearAt(row, pct  / 100);
+  const to   = wmYearAt(row, pct2 / 100);
+  if (!isFinite(from) || !isFinite(to)) return NaN;
+  return to - from;
+}
+
+function wmFmt(mode, value){
+  if (!isFinite(value)) return '—';
+  return mode === 'year' ? wmYearFmt(value) : wmDurationFmt(value);
+}
 
 function wmYearFmt(yearFrac){
   if (!isFinite(yearFrac)) return '—';
@@ -3533,61 +3608,141 @@ function wmPercentileRange(values){
   return [lo, hi];
 }
 
-function wmCurrentMetricKey(){
-  return document.querySelector('input[name="wmMetric"]:checked')?.value || 'year80';
+/* ── World Map: current UI state readers ── */
+function wmReadMode(){
+  return document.querySelector('input[name="wmMode"]:checked')?.value || 'year';
+}
+function wmReadThresholds(){
+  const mode = wmReadMode();
+  if (mode === 'year'){
+    return { pct: parseFloat(document.getElementById('wmThreshold')?.value) || 80, pct2: 0 };
+  }
+  return {
+    pct:  parseFloat(document.getElementById('wmThresholdFrom')?.value) || 20,
+    pct2: parseFloat(document.getElementById('wmThresholdTo')?.value) || 80
+  };
 }
 
+/* ── Region presets (center lat/lon + scale) ── */
+const WM_REGIONS = {
+  world:    { center: { lat: 20, lon: 0 },    scale: 1 },
+  europe:   { center: { lat: 54, lon: 15 },   scale: 3.8 },
+  namerica: { center: { lat: 45, lon: -100 }, scale: 2.4 },
+  samerica: { center: { lat: -20, lon: -60 }, scale: 2.2 },
+  asia:     { center: { lat: 35, lon: 90 },   scale: 2.2 },
+  africa:   { center: { lat: 5, lon: 20 },    scale: 2.2 },
+  oceania:  { center: { lat: -28, lon: 145 }, scale: 3 }
+};
+let wmCurrentRegion = 'world';
+let wmCurrentScale = 1;
+
+/* ── Build hover text for a row ── */
+function wmHover(row, mode, pct, pct2, value){
+  const y20  = wmYearAt(row, 0.20);
+  const y50  = wmYearAt(row, 0.50);
+  const y80  = wmYearAt(row, 0.80);
+  const d2080 = (isFinite(y20) && isFinite(y80)) ? y80 - y20 : NaN;
+  let label, mainVal;
+  if (mode === 'year'){
+    label = `Year reaching ${pct}%`;
+    mainVal = wmFmt('year', value);
+  } else {
+    label = `${pct}% → ${pct2}% transition`;
+    mainVal = wmFmt('duration', value);
+  }
+  return `<b>${row.country}</b><br>` +
+    `${label}: <b>${mainVal}</b><br>` +
+    `<span style="opacity:0.75">` +
+    `20%: ${wmFmt('year', y20)} · 50%: ${wmFmt('year', y50)} · 80%: ${wmFmt('year', y80)}<br>` +
+    `20→80%: ${wmFmt('duration', d2080)}` +
+    (row.dataPer ? `<br>data per: ${row.dataPer}` : '') +
+    `</span><extra></extra>`;
+}
+
+/* ── Main render ── */
 function wmRender(){
-  const metricKey = wmCurrentMetricKey();
-  const metric = WM_METRICS[metricKey];
+  const mode = wmReadMode();
+  const { pct, pct2 } = wmReadThresholds();
   const rows = WORLDMAP_STATE.rows;
 
-  const locations = [];
-  const values = [];
-  const hoverText = [];
-  for (const r of rows){
-    const v = metric.pick(r);
-    if (!isFinite(v)) continue;
-    locations.push(r.country);
-    values.push(v);
-    hoverText.push(
-      `<b>${r.country}</b><br>` +
-      `${metric.label}: <b>${metric.fmt(v)}${metric.hoverSuffix}</b><br>` +
-      `<span style="opacity:0.75">` +
-      `20%: ${isFinite(r.year20) ? wmYearFmt(r.year20) : '—'} · ` +
-      `50%: ${isFinite(r.year50) ? wmYearFmt(r.year50) : '—'} · ` +
-      `80%: ${isFinite(r.year80) ? wmYearFmt(r.year80) : '—'}<br>` +
-      `20→80%: ${isFinite(r.d2080) ? wmDurationFmt(r.d2080) : '—'}` +
-      (r.dataPer ? `<br>data per: ${r.dataPer}` : '') +
-      `</span><extra></extra>`
-    );
-  }
+  // Toggle input visibility
+  document.getElementById('wmInputsYear').style.display    = mode === 'year' ? 'flex' : 'none';
+  document.getElementById('wmInputsDuration').style.display = mode === 'duration' ? 'flex' : 'none';
 
-  const [zmin, zmax] = wmPercentileRange(values);
+  // Compute metrics + classify
+  const data = rows.map(r => {
+    const v = wmComputeMetric(r, mode, pct, pct2);
+    const cls = wmClassify(mode, v, r);
+    return { r, v, cls };
+  });
 
-  const trace = {
-    type: 'choropleth',
-    locationmode: 'country names',
-    locations,
-    z: values,
-    text: hoverText,
+  // Split into three traces: normal, pioneer, stalled
+  const normal  = data.filter(d => d.cls === 'normal');
+  const pioneer = data.filter(d => d.cls === 'pioneer');
+  const stalled = data.filter(d => d.cls === 'stalled');
+
+  const normalVals = normal.map(d => d.v);
+  const [zmin, zmax] = wmPercentileRange(normalVals);
+
+  // Green-to-orange continuous scale for normal countries
+  const greenOrange = [
+    [0,   '#1a9641'],
+    [0.25,'#72bf6a'],
+    [0.5, '#f7f76e'],
+    [0.75,'#f5a646'],
+    [1,   '#d7191c']
+  ];
+
+  const markerLine = { color: '#0b1324', width: 0.5 };
+
+  const colorbarTitle = mode === 'year'
+    ? `Year → ${pct}%`
+    : `${pct}→${pct2}% (years)`;
+
+  const traceNormal = {
+    type: 'choropleth', locationmode: 'country names',
+    locations: normal.map(d => d.r.country),
+    z: normalVals,
+    text: normal.map(d => wmHover(d.r, mode, pct, pct2, d.v)),
     hovertemplate: '%{text}',
-    colorscale: metric.colorscale,
-    reversescale: metric.reversescale,
+    colorscale: greenOrange,
+    reversescale: false,
     zmin, zmax,
-    marker: {
-      line: { color: '#0b1324', width: 0.5 }
-    },
+    marker: { line: markerLine },
     colorbar: {
-      title: { text: metric.label, font: { color: '#9fb3d1', size: 12 } },
+      title: { text: colorbarTitle, font: { color: '#9fb3d1', size: 12 } },
       tickfont: { color: '#9fb3d1', size: 11 },
-      outlinewidth: 0,
-      thickness: 14,
-      len: 0.85,
+      outlinewidth: 0, thickness: 14, len: 0.85,
       bgcolor: 'rgba(0,0,0,0)',
-      tickformat: metricKey === 'd2080' ? '.1f' : 'd'
+      tickformat: mode === 'duration' ? '.1f' : 'd'
     }
   };
+
+  const tracePioneer = {
+    type: 'choropleth', locationmode: 'country names',
+    locations: pioneer.map(d => d.r.country),
+    z: pioneer.map(() => 1),
+    text: pioneer.map(d => wmHover(d.r, mode, pct, pct2, d.v)),
+    hovertemplate: '%{text}',
+    colorscale: [[0, '#f8ff4a'], [1, '#f8ff4a']],
+    zmin: 0, zmax: 1,
+    showscale: false,
+    marker: { line: markerLine }
+  };
+
+  const traceStalled = {
+    type: 'choropleth', locationmode: 'country names',
+    locations: stalled.map(d => d.r.country),
+    z: stalled.map(() => 1),
+    text: stalled.map(d => wmHover(d.r, mode, pct, pct2, d.v)),
+    hovertemplate: '%{text}',
+    colorscale: [[0, '#d65aff'], [1, '#d65aff']],
+    zmin: 0, zmax: 1,
+    showscale: false,
+    marker: { line: markerLine }
+  };
+
+  const region = WM_REGIONS[wmCurrentRegion] || WM_REGIONS.world;
 
   const layout = {
     paper_bgcolor: '#0b1324',
@@ -3604,7 +3759,11 @@ function wmRender(){
       oceancolor: '#080f20',
       showcountries: true,
       countrycolor: '#1a2440',
-      projection: { type: 'natural earth' },
+      projection: {
+        type: 'natural earth',
+        scale: wmCurrentScale * (region.scale || 1)
+      },
+      center: region.center,
       lataxis: { range: [-58, 85] }
     },
     annotations: [{
@@ -3617,32 +3776,47 @@ function wmRender(){
     }]
   };
 
-  Plotly.newPlot('worldMapPlot', [trace], layout, { responsive: true, displaylogo: false });
+  Plotly.newPlot('worldMapPlot', [traceNormal, tracePioneer, traceStalled], layout, {
+    responsive: true, displaylogo: false
+  });
 
-  // Explainer text
+  // Explainer
   const expl = document.getElementById('wmExplainer');
-  if (expl) expl.innerHTML = metric.explain;
+  if (expl){
+    if (mode === 'year'){
+      expl.innerHTML = `Showing the <b>year</b> each country's BEV inflow share reaches <b>${pct}%</b> — same underlying Weibull model as the <em>Thresholds</em> tab, just painted on a map.`;
+    } else {
+      expl.innerHTML = `Showing the <b>transition time</b> from <b>${pct}%</b> to <b>${pct2}%</b> BEV inflow share — same model as the <em>Durations</em> tab, viewed geographically.`;
+    }
+  }
 
-  // Leaders + laggards: sort by the picked metric, lowest (earliest /
-  // fastest) first for "leaders", highest last for "laggards".
-  const sortable = rows
-    .map(r => ({ r, v: metric.pick(r) }))
-    .filter(x => isFinite(x.v))
-    .sort((a,b) => a.v - b.v);
+  // Leaders + Laggards (normal countries only, sorted by metric value)
+  const sortable = normal.slice().sort((a,b) => a.v - b.v);
+  const top5 = sortable.slice(0, 5);
+  const bot5 = sortable.slice(-5).reverse();
 
-  const top = sortable.slice(0, 5);
-  const bot = sortable.slice(-5).reverse();
+  const fmtLi = (d, tag) => {
+    const txt = wmFmt(mode, d.v);
+    return `<${tag}><b>${d.r.country}</b> — ${txt}</${tag}>`;
+  };
 
   const topList = document.getElementById('wmTopList');
   const botList = document.getElementById('wmBottomList');
-  if (topList) topList.innerHTML = top.map(x =>
-    `<li><b>${x.r.country}</b> — ${metric.fmt(x.v)}${metric.hoverSuffix}</li>`
-  ).join('');
-  if (botList) botList.innerHTML = bot.map(x =>
-    `<li><b>${x.r.country}</b> — ${metric.fmt(x.v)}${metric.hoverSuffix}</li>`
-  ).join('');
+  if (topList) topList.innerHTML = top5.map(d => fmtLi(d, 'li')).join('');
+  if (botList) botList.innerHTML = bot5.map(d => fmtLi(d, 'li')).join('');
+
+  // Pioneers + Stalled
+  const pioneerList = document.getElementById('wmPioneerList');
+  const stalledList = document.getElementById('wmStalledList');
+  if (pioneerList) pioneerList.innerHTML = pioneer.length
+    ? pioneer.map(d => `<li><b>${d.r.country}</b> — already past ${pct}% (${wmFmt('year', d.v)})</li>`).join('')
+    : '<li style="opacity:0.6">None at this threshold</li>';
+  if (stalledList) stalledList.innerHTML = stalled.length
+    ? stalled.map(d => `<li><b>${d.r.country}</b></li>`).join('')
+    : '<li style="opacity:0.6">None at this threshold</li>';
 }
 
+/* ── Init ── */
 let WORLDMAP_INITED = false;
 async function initWorldMap(){
   if (WORLDMAP_INITED) { wmRender(); return; }
@@ -3655,9 +3829,59 @@ async function initWorldMap(){
       if (dbg){ dbg.style.display = 'block'; dbg.textContent = 'World map: params.csv loaded but produced 0 countries after variant filter.'; }
       return;
     }
-    document.querySelectorAll('input[name="wmMetric"]').forEach(radio => {
+
+    // Mode radio → toggle inputs + re-render
+    document.querySelectorAll('input[name="wmMode"]').forEach(radio => {
       radio.addEventListener('change', wmRender);
     });
+
+    // Threshold inputs → debounced re-render
+    let wmDebounce = null;
+    const debouncedRender = () => {
+      clearTimeout(wmDebounce);
+      wmDebounce = setTimeout(wmRender, 400);
+    };
+    ['wmThreshold', 'wmThresholdFrom', 'wmThresholdTo'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', debouncedRender);
+    });
+
+    // Region buttons
+    const regionBtns = document.querySelectorAll('#wmRegionBar button[data-region]');
+    function setActiveRegion(key){
+      wmCurrentRegion = key;
+      wmCurrentScale = 1;
+      regionBtns.forEach(b => b.classList.toggle('is-active', b.dataset.region === key));
+      const region = WM_REGIONS[key] || WM_REGIONS.world;
+      Plotly.relayout('worldMapPlot', {
+        'geo.center': region.center,
+        'geo.projection.scale': wmCurrentScale * (region.scale || 1)
+      });
+    }
+    regionBtns.forEach(b => {
+      b.addEventListener('click', () => setActiveRegion(b.dataset.region));
+    });
+    // Mark world active by default
+    regionBtns.forEach(b => b.classList.toggle('is-active', b.dataset.region === 'world'));
+
+    // Zoom +/- / reset
+    document.querySelectorAll('#wmRegionBar button[data-zoom]').forEach(b => {
+      b.addEventListener('click', () => {
+        const action = b.dataset.zoom;
+        if (action === 'reset'){
+          wmCurrentScale = 1;
+        } else if (action === '+1'){
+          wmCurrentScale = Math.min(wmCurrentScale * 1.5, 20);
+        } else if (action === '-1'){
+          wmCurrentScale = Math.max(wmCurrentScale / 1.5, 0.3);
+        }
+        const region = WM_REGIONS[wmCurrentRegion] || WM_REGIONS.world;
+        Plotly.relayout('worldMapPlot', {
+          'geo.projection.scale': wmCurrentScale * (region.scale || 1)
+        });
+      });
+    });
+
     wmRender();
   } catch (err){
     WORLDMAP_INITED = false;
