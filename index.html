@@ -3590,8 +3590,9 @@ function wmPioneerCutoff(row){
 function wmClassify(mode, value, row){
   // v1 was patched from exactly 0 to -1e-24 → CSV precision too low.
   // This happens for extremely fast transitions (e.g. Indonesia) where
-  // v1 is so small that it rounds to 0. Classify as pioneer, not stalled.
-  if (Math.abs(row.v1) < 1e-20) return mode === 'share' ? 'normal' : 'pioneer';
+  // v1 is so small that it rounds to 0. Treat as normal — the computed
+  // year will place it at the green (early) end of the scale.
+  if (Math.abs(row.v1) < 1e-20) return 'normal';
   if (mode === 'share') return 'normal';   // every country gets a 0-100% value
   if (!isFinite(value)) return 'stalled';
   if (mode === 'year'){
