@@ -319,6 +319,32 @@ th.sortable.desc::after{content:" ↓"}
   opacity: 0.6;
   filter: saturate(0.6);
 }
+
+/* World-map region / zoom buttons */
+.wm-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  padding:6px 12px;
+  border:1px solid #2a3654;
+  background:#0b1324;
+  color:#cfe1ff;
+  border-radius:8px;
+  font:inherit;
+  font-size:12px;
+  font-weight:600;
+  cursor:pointer;
+  transition:border-color .15s,background .15s,color .15s;
+}
+.wm-btn:hover{border-color:#4da3ff;background:#11203d;color:#fff}
+.wm-btn.is-active{border-color:#4da3ff;background:#11203d;color:#fff}
+.wm-btn-zoom{
+  min-width:34px;
+  justify-content:center;
+  padding:6px 10px;
+  font-size:14px;
+  font-weight:700;
+}
 /* Inputs in inactive sub-cards stay fully interactive — otherwise the
    control that enables the sub-card (e.g. the decay floor) would be
    unreachable. Visual mute only. */
@@ -386,6 +412,7 @@ th.sortable.desc::after{content:" ↓"}
     <a href="#durations" class="tablink">Durations</a>
     <a href="#builder" class="tablink">Builder</a>
     <a href="#fleet" class="tablink">Fleet</a>
+    <a href="#worldmap" class="tablink">World Map</a>
     <a href="#faq" class="tablink">FAQ</a>
   </nav>
 
@@ -963,10 +990,148 @@ th.sortable.desc::after{content:" ↓"}
   Fleet-Debug (Loading-Status):
   → waiting for Tab-Activation ...
 </div>
-  
+
 </section>
-    
-    
+
+<!-- WORLD MAP TAB -->
+<section id="tab-worldmap" class="tab">
+  <div class="container">
+    <h2 style="margin:2px 0 6px">World Map</h2>
+    <p class="small" style="margin:0 0 14px">
+      Same country data as the <b>Thresholds</b> and <b>Durations</b> tabs, painted on a world map.
+      Only the default (whole-market, passenger-car) variant is shown.
+    </p>
+
+    <div class="card" style="margin-bottom:14px">
+      <div class="small" style="margin-bottom:6px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+        <span>Metric</span>
+        <span class="info-tip"
+          data-tip="Pick the metric painted on every country. Same underlying Weibull model as the Thresholds and Durations tabs — this view just rearranges the data on a map so the geographic pattern is visible at a glance. You can change the threshold(s) freely to match whatever column in Thresholds / Durations you want to see spatially.">i</span>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <label class="chip">
+          <input type="radio" name="wmMode" value="year" checked>
+          Year reaching threshold
+        </label>
+        <label class="chip">
+          <input type="radio" name="wmMode" value="duration">
+          Transition time between thresholds
+        </label>
+        <label class="chip">
+          <input type="radio" name="wmMode" value="share">
+          BEV share timeline
+        </label>
+      </div>
+
+      <div id="wmInputsYear" style="display:flex; flex-wrap:wrap; gap:14px; align-items:center; margin-top:12px;">
+        <div class="field" style="min-width:120px;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <label for="wmThreshold">Threshold (% BEV, inflow)</label>
+            <span class="info-tip"
+              data-tip="BEV share of new registrations at which the map 'fires'. 80% matches the default Thresholds column; 50% is the halfway pivot; 95% shows the last stragglers. Integer from 1 to 99.">i</span>
+          </div>
+          <input id="wmThreshold" type="number" min="1" max="99" step="1" value="80" style="width:90px">
+        </div>
+      </div>
+
+      <div id="wmInputsShare" style="display:none; flex-wrap:wrap; gap:14px; align-items:center; margin-top:12px;">
+        <div class="field" style="flex:1; min-width:220px;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <label for="wmShareYear">Year</label>
+            <span class="info-tip"
+              data-tip="Drag to scrub through time and watch BEV shares evolve across the world map. The Weibull model is evaluated at the selected date for every country. Hit ▶ to auto-play.">i</span>
+            <span id="wmShareYearLabel" style="font-weight:700; font-size:15px; color:#eef3ff; margin-left:6px;">2026</span>
+            <button id="wmPlayBtn" class="wm-btn" style="margin-left:8px; padding:4px 10px; font-size:13px;" title="Auto-play timeline">▶</button>
+          </div>
+          <input id="wmShareYear" type="range" min="2010" max="2070" step="1" value="2026" style="width:100%; margin-top:6px; accent-color:#4da3ff;">
+        </div>
+      </div>
+
+      <div id="wmInputsDuration" style="display:none; flex-wrap:wrap; gap:14px; align-items:center; margin-top:12px;">
+        <div class="field" style="min-width:120px;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <label for="wmThresholdFrom">From (%)</label>
+            <span class="info-tip"
+              data-tip="Lower bound of the transition window. 20% matches the default Durations column (20 → 80 %). Must be strictly smaller than the upper bound.">i</span>
+          </div>
+          <input id="wmThresholdFrom" type="number" min="1" max="98" step="1" value="20" style="width:90px">
+        </div>
+        <div class="field" style="min-width:120px;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <label for="wmThresholdTo">To (%)</label>
+            <span class="info-tip"
+              data-tip="Upper bound of the transition window. 80% matches the default Durations column. Must be strictly larger than the lower bound.">i</span>
+          </div>
+          <input id="wmThresholdTo" type="number" min="2" max="99" step="1" value="80" style="width:90px">
+        </div>
+      </div>
+
+      <p class="small" id="wmExplainer" style="margin:14px 0 0; color:#9fb3d1; line-height:1.5;"></p>
+    </div>
+
+    <div class="card" style="padding:0;">
+      <div id="wmRegionBar" style="display:flex; flex-wrap:wrap; gap:6px; padding:10px 12px 6px; align-items:center; border-bottom:1px solid #1a2440;">
+        <span class="small" style="margin-right:4px; opacity:0.8;">View</span>
+        <button class="wm-btn" data-region="world">🌍 World</button>
+        <button class="wm-btn" data-region="europe">Europe</button>
+        <button class="wm-btn" data-region="namerica">N. America</button>
+        <button class="wm-btn" data-region="samerica">S. America</button>
+        <button class="wm-btn" data-region="asia">Asia</button>
+        <button class="wm-btn" data-region="africa">Africa</button>
+        <button class="wm-btn" data-region="oceania">Oceania</button>
+        <span style="flex:1"></span>
+        <span class="small" style="margin-right:4px; opacity:0.8;">Zoom</span>
+        <button class="wm-btn wm-btn-zoom" data-zoom="-1" title="Zoom out">−</button>
+        <button class="wm-btn wm-btn-zoom" data-zoom="+1" title="Zoom in">+</button>
+        <button class="wm-btn wm-btn-zoom" data-zoom="reset" title="Reset view">⟲</button>
+      </div>
+      <div id="worldMapPlot" style="height:620px"></div>
+      <p class="small" style="margin:4px 14px 10px; color:#6f86ad;">
+        Color scale is clipped at the 5th and 95th percentile so regular countries get a useful gradient.
+        <b style="color:#00e5ff">Cyan</b> = pioneers that have already reached the threshold.
+        <b style="color:#d65aff">Purple</b> = countries whose fitted model does not project a transition within a reasonable horizon.
+        Exact values always live in the hover tooltip.
+      </p>
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:20px;">
+        <div>
+          <h3 style="margin:0 0 10px; font-size:13px; color:#7fe0b0; letter-spacing:0.3px; text-transform:uppercase;">Leaders</h3>
+          <ol id="wmTopList" style="margin:0; padding:0 0 0 22px; color:#eef3ff; font-size:13px; line-height:1.7;"></ol>
+        </div>
+        <div>
+          <h3 style="margin:0 0 10px; font-size:13px; color:#ffb07f; letter-spacing:0.3px; text-transform:uppercase;">Laggards</h3>
+          <ol id="wmBottomList" style="margin:0; padding:0 0 0 22px; color:#eef3ff; font-size:13px; line-height:1.7;"></ol>
+        </div>
+        <div>
+          <h3 style="margin:0 0 10px; font-size:13px; color:#00e5ff; letter-spacing:0.3px; text-transform:uppercase;">Pioneers</h3>
+          <ul id="wmPioneerList" style="margin:0 0 0; padding:0 0 0 22px; color:#eef3ff; font-size:13px; line-height:1.7;"></ul>
+        </div>
+        <div>
+          <h3 style="margin:0 0 10px; font-size:13px; color:#d65aff; letter-spacing:0.3px; text-transform:uppercase;">No transition</h3>
+          <ul id="wmStalledList" style="margin:0 0 0; padding:0 0 0 22px; color:#eef3ff; font-size:13px; line-height:1.7;"></ul>
+        </div>
+      </div>
+      <p class="small" style="margin:12px 0 0; color:#6f86ad;">
+        Leaders / Laggards are the top and bottom five <em>normal</em> countries for the selected metric. <b style="color:#00e5ff">Pioneers</b> have already reached the threshold at the time of the last data point. <b style="color:#d65aff">No transition</b> countries have a fitted Weibull that does not reach the threshold within a reasonable horizon — usually because v2 is very small (flat curve) or the model is still in its early phase.
+      </p>
+    </div>
+
+    <div id="worldMapDebugBox" style="
+      background: #332200;
+      color: #ffdd88;
+      padding: 12px;
+      border-radius: 10px;
+      margin: 16px 0 24px;
+      font-family: monospace;
+      white-space: pre-wrap;
+      border: 2px dashed #664400;
+      display: none;
+    "></div>
+  </div>
+</section>
+
 <script>
 // Generic trailing-edge debounce. Used to throttle expensive recomputes
 // (Plotly redraws, full-list DOM scans) when an input fires on every keystroke.
@@ -1064,15 +1229,23 @@ function loadFleetWhenActive() {
     initFleetTab();
   }
 }
+// World-Map-Tab nur laden, wenn er aktiv wird
+function loadWorldMapWhenActive() {
+  if (location.hash === '#worldmap') {
+    initWorldMap();
+  }
+}
 // Bei jedem Tab-Wechsel prüfen
 window.addEventListener('hashchange', () => {
   activateTabByHash();
   loadFleetWhenActive();
+  loadWorldMapWhenActive();
 });
 // Initial beim Laden prüfen
 window.addEventListener('DOMContentLoaded', () => {
   activateTabByHash();
   loadFleetWhenActive();
+  loadWorldMapWhenActive();
 });
   
 // -------- Lightbox ergonomics --------
@@ -3233,6 +3406,618 @@ document.addEventListener('keydown', (e) => {
     document.querySelectorAll('.info-bubble').forEach(b => b.remove());
   }
 });
+
+// -------- WORLD MAP --------
+//
+// The world map reuses the same Weibull-fit data that Thresholds and
+// Durations already load from params.csv. We only take the "whole"
+// (passenger-car / whole-market) variant of each country, cache the
+// raw v1/v2/t0/baseline, and compute year-at-threshold / duration
+// on demand so the user can pick any threshold and we don't have to
+// re-parse the CSV for every click.
+//
+// Countries are painted as one of three categories:
+//   - "normal"   — continuous green → orange colorscale (P5..P95 clip)
+//   - "pioneer"  — already past the threshold by the data_per date,
+//                   painted bright yellow to signal "in a different league"
+//   - "stalled"  — Weibull does not project a transition within a
+//                   reasonable horizon, painted purple to signal
+//                   "not slow, but different"
+//
+// Plotly understands full country names when locationmode is set to
+// 'country names'. A small alias table handles the handful of names
+// where params.csv and Plotly's Natural Earth dataset disagree.
+
+const WORLDMAP_STATE = {
+  loaded: false,
+  rows: [],        // cleaned per-country rows with all metrics pre-computed
+};
+
+// params.csv names → Plotly choropleth names (where they differ).
+const WM_COUNTRY_ALIASES = {
+  'Türkiye':                 'Turkey',
+  'Turkiye':                 'Turkey',
+  'USA':                     'United States',
+  'US':                      'United States',
+  'United States of America':'United States',
+  'UK':                      'United Kingdom',
+  'Great Britain':           'United Kingdom',
+  'South Korea':             'South Korea',
+  'Korea':                   'South Korea',
+  'Korea, Republic of':      'South Korea',
+  'Republic of Korea':       'South Korea',
+  'Czechia':                 'Czech Republic',
+  'Russia':                  'Russia',
+  'Russian Federation':      'Russia',
+  'Viet Nam':                'Vietnam',
+  'UAE':                     'United Arab Emirates',
+  'Hong Kong, China':        'Hong Kong',
+  'Taiwan, China':           'Taiwan',
+  'Chinese Taipei':          'Taiwan',
+  'NewZealand':              'New Zealand',
+  'Newzealand':              'New Zealand',
+  'SouthKorea':              'South Korea',
+  'SaudiArabia':             'Saudi Arabia',
+  'UnitedKingdom':           'United Kingdom',
+  'UnitedStates':            'United States'
+};
+
+function wmNormalizeCountry(raw){
+  const k = String(raw || '').trim();
+  if (!k) return '';
+  return WM_COUNTRY_ALIASES[k] || k;
+}
+
+// Pull params.csv (via the same two-URL probe Thresholds uses), keep
+// only the "whole" variant of each country, compute the 20/50/80 year
+// and the 20→80 duration, and cache everything for fast re-renders.
+function wmLoadData(){
+  if (WORLDMAP_STATE.loaded) return Promise.resolve();
+  const urls = ['./params.csv','params.csv'];
+  return new Promise((resolve, reject) => {
+    (function next(i){
+      if (i >= urls.length){
+        reject(new Error('Could not load params.csv for world map'));
+        return;
+      }
+      fetch(urls[i], { cache: 'no-store' })
+        .then(r => r.ok ? r.text() : Promise.reject(new Error('HTTP ' + r.status)))
+        .then(txt => {
+          const rows = parseCSV(txt);
+          WORLDMAP_STATE.rows = wmBuildRows(rows);
+          WORLDMAP_STATE.loaded = true;
+          resolve();
+        })
+        .catch(() => next(i + 1));
+    })(0);
+  });
+}
+
+function wmBuildRows(csvRows){
+  // Keep one row per country — the "whole" variant. If a country has
+  // several "whole" rows (shouldn't happen, but just in case) pick the
+  // one with the most recent data_per so we reflect the freshest fit.
+  const byCountry = new Map();
+  for (const r of csvRows){
+    const parts = extractVariantParts(r.variant || '');
+    if (normalizeBase(parts.base || '') !== 'whole') continue;
+
+    const country = wmNormalizeCountry(r.country);
+    if (!country) continue;
+
+    const prev = byCountry.get(country);
+    const dp = getDataPer(r);
+    if (!prev || (dp && dp > (prev._dp || ''))) {
+      byCountry.set(country, { ...r, _dp: dp });
+    }
+  }
+
+  const out = [];
+  for (const r of byCountry.values()){
+    let v1 = normNumber(r.v1);
+    // v1 exactly 0 means the CSV precision rounded away a tiny negative
+    // value (e.g. Indonesia). Patch to -1e-24 so the Weibull is technically
+    // valid but yields ~0% share → classifies as stalled automatically.
+    if (!isFinite(v1)) continue;
+    if (v1 === 0) v1 = -1e-24;
+
+    // Resolve baseYear: prefer baseline_year → baseline_date → t0 as
+    // calendar year (if ≥1800). The live CSV has no baseline_year or
+    // baseline_date columns, so t0 (a calendar year like 2009) is the
+    // only source for most countries.
+    // normNumber returns 0 for undefined/empty, so check for actual field presence
+    let baseYear = NaN;
+    if (r.baseline_year != null && String(r.baseline_year).trim() !== ''){
+      baseYear = normNumber(r.baseline_year);
+    }
+    if (!isFinite(baseYear) && r.baseline_date && /^\d{4}/.test(r.baseline_date)){
+      baseYear = parseInt(r.baseline_date.slice(0,4), 10);
+    }
+    if (!isFinite(baseYear)){
+      const t0str = String(r.t0 || '').trim();
+      const t0raw = normNumber(t0str);
+      if (t0str !== '' && isFinite(t0raw) && t0raw >= 1800) baseYear = Math.round(t0raw);
+    }
+
+    out.push({
+      country:  wmNormalizeCountry(r.country),
+      dataPer:  r._dp || '',
+      v1,
+      v2:       normNumber(r.v2),
+      t0:       getT0Years(r),
+      _t0raw:   normNumber((r.t0||'').trim()),  // calendar year from CSV, for direct share calc
+      baseYear,
+      baseDate: r.baseline_date || ''
+    });
+  }
+  out.sort((a,b) => a.country.localeCompare(b.country));
+  return out;
+}
+
+// Compute the calendar year (as a float: 2027.5 = mid-2027) in which
+// the fitted Weibull reaches BEV share y \in (0,1), or NaN if the
+// model does not produce a finite answer. Pure function so we can
+// call it for any threshold, not just the cached 20/50/80.
+function wmYearAt(row, y){
+  const res = inv_x_years(y, row.v1, row.v2, row.t0);
+  if (!res || !isFinite(res.x)) return NaN;
+  const dstr = yearsIndexToDate(res.x, row.baseDate, row.baseYear);
+  if (!dstr) return NaN;
+  const parsed = Date.parse(dstr);
+  if (!isFinite(parsed)) return NaN;
+  const d = new Date(parsed);
+  return d.getUTCFullYear()
+    + (d.getUTCMonth() + (d.getUTCDate() - 1) / 31) / 12;
+}
+
+// Anchor "pioneer" to the data_per date of each row (fallback 2025).
+// Countries whose fitted year-at-threshold is earlier than this are
+// labelled pioneers — they had already hit the threshold by their
+// most recent data point.
+function wmPioneerCutoff(row){
+  const dp = row.dataPer || '';
+  if (/^\d{4}-\d{2}$/.test(dp)) {
+    const y = parseInt(dp.slice(0,4), 10);
+    const m = parseInt(dp.slice(5,7), 10);
+    return y + (m - 1) / 12;
+  }
+  return 2025;
+}
+
+// 'normal' | 'pioneer' | 'stalled'. Duration mode never produces a
+// "pioneer" — it can only be normal or stalled (at least one endpoint
+// unreachable within the fitted horizon).
+function wmClassify(mode, value, row){
+  // v1 was patched from exactly 0 to -1e-24 → CSV precision too low.
+  // This happens for extremely fast transitions (e.g. Indonesia) where
+  // v1 is so small that it rounds to 0. Treat as normal — the computed
+  // year will place it at the green (early) end of the scale.
+  if (Math.abs(row.v1) < 1e-20) return 'normal';
+  if (mode === 'share') return 'normal';   // every country gets a 0-100% value
+  if (!isFinite(value)) return 'stalled';
+  if (mode === 'year'){
+    if (value > 2199) return 'stalled';
+    if (value < wmPioneerCutoff(row)) return 'pioneer';
+    return 'normal';
+  }
+  if (Math.abs(value) > 200) return 'stalled';
+  return 'normal';
+}
+
+function wmComputeMetric(row, mode, pct, pct2){
+  if (mode === 'year'){
+    return wmYearAt(row, pct / 100);
+  }
+  if (mode === 'share'){
+    // BEV share using raw CSV formula: 1 - exp(v1 * (calYear - t0_calendar)^v2)
+    // The CSV stores t0 as a calendar year (e.g. 2009), not index-time.
+    const slider = document.getElementById('wmShareYear');
+    const yearVal = slider ? parseFloat(slider.value) : new Date().getUTCFullYear();
+    const t0cal = normNumber(String(row._t0raw || row.baseYear));
+    const z = yearVal - t0cal;
+    if (z <= 0) return 0;
+    return Math.max(0, Math.min(100, (1 - Math.exp(row.v1 * Math.pow(z, row.v2))) * 100));
+  }
+  const from = wmYearAt(row, pct  / 100);
+  const to   = wmYearAt(row, pct2 / 100);
+  if (!isFinite(from) || !isFinite(to)) return NaN;
+  return to - from;
+}
+
+function wmFmt(mode, value){
+  if (!isFinite(value)) return '—';
+  if (mode === 'share') return value.toFixed(1) + '%';
+  return mode === 'year' ? wmYearFmt(value) : wmDurationFmt(value);
+}
+
+function wmYearFmt(yearFrac){
+  if (!isFinite(yearFrac)) return '—';
+  const y = Math.floor(yearFrac);
+  const m = Math.min(12, Math.max(1, Math.floor((yearFrac - y) * 12) + 1));
+  return `${y}-${String(m).padStart(2,'0')}`;
+}
+
+function wmDurationFmt(years){
+  if (!isFinite(years)) return '—';
+  const y = Math.floor(Math.abs(years) + 1e-9);
+  const m = Math.round((Math.abs(years) - y) * 12);
+  const sign = years < 0 ? '-' : '';
+  if (y && m) return `${sign}${y}y ${m}m`;
+  if (y)      return `${sign}${y}y`;
+  return `${sign}${m}m`;
+}
+
+// Percentile clip for the color scale — one or two outliers (Norway
+// hitting 80% well before anyone else) would otherwise flatten the
+// whole world into a single color. We clamp the scale to P5..P95 of
+// the actual data so the rest of the map gets a useful spread.
+function wmPercentileRange(values){
+  const arr = values.filter(v => isFinite(v)).slice().sort((a,b)=>a-b);
+  if (!arr.length) return [0, 1];
+  const q = p => {
+    const idx = Math.max(0, Math.min(arr.length-1, Math.round((arr.length-1) * p)));
+    return arr[idx];
+  };
+  const lo = q(0.05);
+  const hi = q(0.95);
+  if (lo === hi){
+    // Degenerate case: give the scale at least a tiny range so Plotly
+    // doesn't complain.
+    return [lo - 0.5, hi + 0.5];
+  }
+  return [lo, hi];
+}
+
+/* ── World Map: current UI state readers ── */
+function wmReadMode(){
+  return document.querySelector('input[name="wmMode"]:checked')?.value || 'year';
+}
+function wmReadThresholds(){
+  const mode = wmReadMode();
+  if (mode === 'year'){
+    return { pct: parseFloat(document.getElementById('wmThreshold')?.value) || 80, pct2: 0 };
+  }
+  return {
+    pct:  parseFloat(document.getElementById('wmThresholdFrom')?.value) || 20,
+    pct2: parseFloat(document.getElementById('wmThresholdTo')?.value) || 80
+  };
+}
+
+/* ── Region presets (center lat/lon + scale) ── */
+const WM_REGIONS = {
+  world:    { center: { lat: 20, lon: 0 },    scale: 1 },
+  europe:   { center: { lat: 54, lon: 15 },   scale: 3.8 },
+  namerica: { center: { lat: 45, lon: -100 }, scale: 2.4 },
+  samerica: { center: { lat: -20, lon: -60 }, scale: 2.2 },
+  asia:     { center: { lat: 35, lon: 90 },   scale: 2.2 },
+  africa:   { center: { lat: 5, lon: 20 },    scale: 2.2 },
+  oceania:  { center: { lat: -28, lon: 145 }, scale: 3 }
+};
+let wmCurrentRegion = 'world';
+let wmCurrentScale = 1;
+
+/* ── Build hover text for a row ── */
+function wmHover(row, mode, pct, pct2, value){
+  const y20  = wmYearAt(row, 0.20);
+  const y50  = wmYearAt(row, 0.50);
+  const y80  = wmYearAt(row, 0.80);
+  const d2080 = (isFinite(y20) && isFinite(y80)) ? y80 - y20 : NaN;
+  let label, mainVal;
+  if (mode === 'year'){
+    label = `Year reaching ${pct}%`;
+    mainVal = wmFmt('year', value);
+  } else {
+    label = `${pct}% → ${pct2}% transition`;
+    mainVal = wmFmt('duration', value);
+  }
+  return `<b>${row.country}</b><br>` +
+    `${label}: <b>${mainVal}</b><br>` +
+    `<span style="opacity:0.75">` +
+    `20%: ${wmFmt('year', y20)} · 50%: ${wmFmt('year', y50)} · 80%: ${wmFmt('year', y80)}<br>` +
+    `20→80%: ${wmFmt('duration', d2080)}` +
+    (row.dataPer ? `<br>data per: ${row.dataPer}` : '') +
+    `</span><extra></extra>`;
+}
+
+/* ── Main render ── */
+function wmRender(){
+  const mode = wmReadMode();
+  const { pct, pct2 } = wmReadThresholds();
+  const rows = WORLDMAP_STATE.rows;
+
+  // Toggle input visibility
+  document.getElementById('wmInputsYear').style.display     = mode === 'year' ? 'flex' : 'none';
+  document.getElementById('wmInputsDuration').style.display  = mode === 'duration' ? 'flex' : 'none';
+  document.getElementById('wmInputsShare').style.display     = mode === 'share' ? 'flex' : 'none';
+
+  // Compute metrics + classify
+  const data = rows.map(r => {
+    const v = wmComputeMetric(r, mode, pct, pct2);
+    const cls = wmClassify(mode, v, r);
+    return { r, v, cls };
+  });
+
+  // Split into three traces: normal, pioneer, stalled
+  const normal  = data.filter(d => d.cls === 'normal');
+  const pioneer = data.filter(d => d.cls === 'pioneer');
+  const stalled = data.filter(d => d.cls === 'stalled');
+
+  const normalVals = normal.map(d => d.v);
+  // For share mode, fixed 0-100% range; otherwise percentile clip
+  const [zmin, zmax] = mode === 'share' ? [0, 100] : wmPercentileRange(normalVals);
+
+  // Color scales: for share mode, reverse (red=low → green=high, higher share = better)
+  // For year/duration: green=early/fast → red=late/slow
+  const greenOrange = [
+    [0,   '#1a9641'],
+    [0.25,'#72bf6a'],
+    [0.5, '#f7f76e'],
+    [0.75,'#f5a646'],
+    [1,   '#d7191c']
+  ];
+  const shareScale = [
+    [0,   '#d7191c'],
+    [0.25,'#f5a646'],
+    [0.5, '#f7f76e'],
+    [0.75,'#72bf6a'],
+    [1,   '#1a9641']
+  ];
+  const colorscale = mode === 'share' ? shareScale : greenOrange;
+
+  const markerLine = { color: '#0b1324', width: 0.5 };
+
+  const shareYr = mode === 'share' ? (document.getElementById('wmShareYear')?.value || '2026') : '';
+  const colorbarTitle = mode === 'year'
+    ? `Year → ${pct}%`
+    : mode === 'duration'
+    ? `${pct}→${pct2}% (years)`
+    : `BEV % (${shareYr})`;
+
+  const traceNormal = {
+    type: 'choropleth', locationmode: 'country names',
+    locations: normal.map(d => d.r.country),
+    z: normalVals,
+    text: normal.map(d => wmHover(d.r, mode, pct, pct2, d.v)),
+    hovertemplate: '%{text}',
+    colorscale: colorscale,
+    reversescale: false,
+    zmin, zmax,
+    marker: { line: markerLine },
+    colorbar: {
+      title: { text: colorbarTitle, font: { color: '#9fb3d1', size: 12 } },
+      tickfont: { color: '#9fb3d1', size: 11 },
+      outlinewidth: 0, thickness: 14, len: 0.85,
+      bgcolor: 'rgba(0,0,0,0)',
+      tickformat: mode === 'share' ? '.0f' : mode === 'duration' ? '.1f' : 'd'
+    }
+  };
+
+  const tracePioneer = {
+    type: 'choropleth', locationmode: 'country names',
+    locations: pioneer.map(d => d.r.country),
+    z: pioneer.map(() => 1),
+    text: pioneer.map(d => wmHover(d.r, mode, pct, pct2, d.v)),
+    hovertemplate: '%{text}',
+    colorscale: [[0, '#00e5ff'], [1, '#00e5ff']],
+    zmin: 0, zmax: 1,
+    showscale: false,
+    marker: { line: markerLine }
+  };
+
+  const traceStalled = {
+    type: 'choropleth', locationmode: 'country names',
+    locations: stalled.map(d => d.r.country),
+    z: stalled.map(() => 1),
+    text: stalled.map(d => wmHover(d.r, mode, pct, pct2, d.v)),
+    hovertemplate: '%{text}',
+    colorscale: [[0, '#d65aff'], [1, '#d65aff']],
+    zmin: 0, zmax: 1,
+    showscale: false,
+    marker: { line: markerLine }
+  };
+
+  const region = WM_REGIONS[wmCurrentRegion] || WM_REGIONS.world;
+
+  const layout = {
+    paper_bgcolor: '#0b1324',
+    plot_bgcolor: '#0b1324',
+    margin: { l: 0, r: 0, t: 6, b: 0 },
+    geo: {
+      bgcolor: '#0b1324',
+      showframe: false,
+      showcoastlines: true,
+      coastlinecolor: '#1a2440',
+      showland: true,
+      landcolor: '#101a33',
+      showocean: true,
+      oceancolor: '#080f20',
+      showcountries: true,
+      countrycolor: '#1a2440',
+      projection: {
+        type: 'natural earth',
+        scale: wmCurrentScale * (region.scale || 1)
+      },
+      center: region.center,
+      lataxis: { range: [-58, 85] }
+    },
+    annotations: [{
+      x: 0.995, y: 0.02,
+      xref: 'paper', yref: 'paper',
+      xanchor: 'right', yanchor: 'bottom',
+      text: '@LeRaffl',
+      showarrow: false,
+      font: { size: 11, color: 'rgba(159,179,209,0.55)' }
+    }]
+  };
+
+  Plotly.newPlot('worldMapPlot', [traceNormal, tracePioneer, traceStalled], layout, {
+    responsive: true, displaylogo: false
+  });
+
+  // Explainer
+  const expl = document.getElementById('wmExplainer');
+  if (expl){
+    if (mode === 'year'){
+      expl.innerHTML = `Showing the <b>year</b> each country's BEV inflow share reaches <b>${pct}%</b> — same underlying Weibull model as the <em>Thresholds</em> tab, just painted on a map.`;
+    } else if (mode === 'duration'){
+      expl.innerHTML = `Showing the <b>transition time</b> from <b>${pct}%</b> to <b>${pct2}%</b> BEV inflow share — same model as the <em>Durations</em> tab, viewed geographically.`;
+    } else {
+      const slider = document.getElementById('wmShareYear');
+      const yr = slider ? slider.value : new Date().getUTCFullYear();
+      expl.innerHTML = `Showing the <b>modeled BEV inflow share</b> in <b>${yr}</b> — the Weibull curve evaluated at the selected year. Drag the slider or hit <b>▶</b> to watch the global transition unfold over time.`;
+    }
+  }
+
+  // Leaders + Laggards (normal countries only, sorted by metric value)
+  // For share mode, higher = better, so reverse the sort
+  const sortable = normal.slice().sort((a,b) => a.v - b.v);
+  const top5 = mode === 'share' ? sortable.slice(-5).reverse() : sortable.slice(0, 5);
+  const bot5 = mode === 'share' ? sortable.slice(0, 5) : sortable.slice(-5).reverse();
+
+  const fmtLi = (d, tag) => {
+    const txt = wmFmt(mode, d.v);
+    return `<${tag}><b>${d.r.country}</b> — ${txt}</${tag}>`;
+  };
+
+  const topList = document.getElementById('wmTopList');
+  const botList = document.getElementById('wmBottomList');
+  if (topList) topList.innerHTML = top5.map(d => fmtLi(d, 'li')).join('');
+  if (botList) botList.innerHTML = bot5.map(d => fmtLi(d, 'li')).join('');
+
+  // Pioneers + Stalled
+  const pioneerList = document.getElementById('wmPioneerList');
+  const stalledList = document.getElementById('wmStalledList');
+  if (pioneerList) pioneerList.innerHTML = pioneer.length
+    ? pioneer.map(d => `<li><b>${d.r.country}</b> — already past ${pct}% (${wmFmt('year', d.v)})</li>`).join('')
+    : '<li style="opacity:0.6">None at this threshold</li>';
+  if (stalledList) stalledList.innerHTML = stalled.length
+    ? stalled.map(d => `<li><b>${d.r.country}</b></li>`).join('')
+    : '<li style="opacity:0.6">None at this threshold</li>';
+}
+
+/* ── Init ── */
+let WORLDMAP_INITED = false;
+async function initWorldMap(){
+  if (WORLDMAP_INITED) { wmRender(); return; }
+  WORLDMAP_INITED = true;
+  const dbg = document.getElementById('worldMapDebugBox');
+  try {
+    await ensurePlotly();
+    await wmLoadData();
+    if (!WORLDMAP_STATE.rows.length){
+      if (dbg){ dbg.style.display = 'block'; dbg.textContent = 'World map: params.csv loaded but produced 0 countries after variant filter.'; }
+      return;
+    }
+
+    // Mode radio → toggle inputs + re-render
+    document.querySelectorAll('input[name="wmMode"]').forEach(radio => {
+      radio.addEventListener('change', wmRender);
+    });
+
+    // Threshold inputs → debounced re-render
+    let wmDebounce = null;
+    const debouncedRender = () => {
+      clearTimeout(wmDebounce);
+      wmDebounce = setTimeout(wmRender, 400);
+    };
+    ['wmThreshold', 'wmThresholdFrom', 'wmThresholdTo'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', debouncedRender);
+    });
+
+    // Share timeline slider
+    const shareSlider = document.getElementById('wmShareYear');
+    const shareLabel  = document.getElementById('wmShareYearLabel');
+    if (shareSlider){
+      // Set default to current year
+      const curYear = new Date().getUTCFullYear();
+      shareSlider.value = Math.min(Math.max(curYear, 2010), 2070);
+      if (shareLabel) shareLabel.textContent = shareSlider.value;
+
+      shareSlider.addEventListener('input', () => {
+        if (shareLabel) shareLabel.textContent = shareSlider.value;
+        wmRender();
+      });
+    }
+
+    // Play button — auto-advance slider
+    let wmPlayInterval = null;
+    const playBtn = document.getElementById('wmPlayBtn');
+    if (playBtn && shareSlider){
+      playBtn.addEventListener('click', () => {
+        if (wmPlayInterval){
+          // Stop
+          clearInterval(wmPlayInterval);
+          wmPlayInterval = null;
+          playBtn.textContent = '▶';
+          playBtn.classList.remove('is-active');
+          return;
+        }
+        // Start from current position (or reset to 2010 if at end)
+        if (parseInt(shareSlider.value) >= parseInt(shareSlider.max)){
+          shareSlider.value = shareSlider.min;
+        }
+        playBtn.textContent = '⏸';
+        playBtn.classList.add('is-active');
+        wmPlayInterval = setInterval(() => {
+          const next = parseInt(shareSlider.value) + 1;
+          if (next > parseInt(shareSlider.max)){
+            clearInterval(wmPlayInterval);
+            wmPlayInterval = null;
+            playBtn.textContent = '▶';
+            playBtn.classList.remove('is-active');
+            return;
+          }
+          shareSlider.value = next;
+          if (shareLabel) shareLabel.textContent = next;
+          wmRender();
+        }, 350);
+      });
+    }
+
+    // Region buttons
+    const regionBtns = document.querySelectorAll('#wmRegionBar button[data-region]');
+    function setActiveRegion(key){
+      wmCurrentRegion = key;
+      wmCurrentScale = 1;
+      regionBtns.forEach(b => b.classList.toggle('is-active', b.dataset.region === key));
+      const region = WM_REGIONS[key] || WM_REGIONS.world;
+      Plotly.relayout('worldMapPlot', {
+        'geo.center': region.center,
+        'geo.projection.scale': wmCurrentScale * (region.scale || 1)
+      });
+    }
+    regionBtns.forEach(b => {
+      b.addEventListener('click', () => setActiveRegion(b.dataset.region));
+    });
+    // Mark world active by default
+    regionBtns.forEach(b => b.classList.toggle('is-active', b.dataset.region === 'world'));
+
+    // Zoom +/- / reset
+    document.querySelectorAll('#wmRegionBar button[data-zoom]').forEach(b => {
+      b.addEventListener('click', () => {
+        const action = b.dataset.zoom;
+        if (action === 'reset'){
+          wmCurrentScale = 1;
+        } else if (action === '+1'){
+          wmCurrentScale = Math.min(wmCurrentScale * 1.5, 20);
+        } else if (action === '-1'){
+          wmCurrentScale = Math.max(wmCurrentScale / 1.5, 0.3);
+        }
+        const region = WM_REGIONS[wmCurrentRegion] || WM_REGIONS.world;
+        Plotly.relayout('worldMapPlot', {
+          'geo.projection.scale': wmCurrentScale * (region.scale || 1)
+        });
+      });
+    });
+
+    wmRender();
+  } catch (err){
+    WORLDMAP_INITED = false;
+    if (dbg){ dbg.style.display = 'block'; dbg.textContent = 'World map init failed: ' + (err?.message || err); }
+    console.error('[worldmap]', err);
+  }
+}
 </script>
 </body>
 </html>
