@@ -3514,13 +3514,33 @@ function wmBuildRows(csvRows){
 
   const out = [];
   for (const r of byCountry.values()){
+    const v1 = normNumber(r.v1);
+    // Skip countries whose v1 is exactly 0 — the Weibull is degenerate
+    // (e.g. Indonesia where the CSV precision rounds to 0). A tiny
+    // placeholder like -1e-24 is fine and will classify as stalled.
+    // TODO: fix upstream CSV precision for Indonesia.
+    if (v1 === 0 || !isFinite(v1)) continue;
+
+    // Resolve baseYear: prefer baseline_year → baseline_date → t0 as
+    // calendar year (if ≥1800). The live CSV has no baseline_year or
+    // baseline_date columns, so t0 (a calendar year like 2009) is the
+    // only source for most countries.
+    let baseYear = normNumber(r.baseline_year);
+    if (!isFinite(baseYear) && r.baseline_date && /^\d{4}/.test(r.baseline_date)){
+      baseYear = parseInt(r.baseline_date.slice(0,4), 10);
+    }
+    if (!isFinite(baseYear)){
+      const t0raw = normNumber((r.t0||'').trim());
+      if (isFinite(t0raw) && t0raw >= 1800) baseYear = Math.round(t0raw);
+    }
+
     out.push({
       country:  wmNormalizeCountry(r.country),
       dataPer:  r._dp || '',
-      v1:       normNumber(r.v1),
+      v1,
       v2:       normNumber(r.v2),
       t0:       getT0Years(r),
-      baseYear: normNumber(r.baseline_year),
+      baseYear,
       baseDate: r.baseline_date || ''
     });
   }
