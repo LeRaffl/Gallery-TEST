@@ -1017,6 +1017,10 @@ th.sortable.desc::after{content:" ↓"}
           <input type="radio" name="wmMode" value="duration">
           Transition time between thresholds
         </label>
+        <label class="chip">
+          <input type="radio" name="wmMode" value="share">
+          Current BEV share (model)
+        </label>
       </div>
 
       <div id="wmInputsYear" style="display:flex; flex-wrap:wrap; gap:14px; align-items:center; margin-top:12px;">
@@ -3545,6 +3549,7 @@ function wmPioneerCutoff(row){
 // "pioneer" — it can only be normal or stalled (at least one endpoint
 // unreachable within the fitted horizon).
 function wmClassify(mode, value, row){
+  if (mode === 'share') return 'normal';   // every country gets a 0-100% value
   if (!isFinite(value)) return 'stalled';
   if (mode === 'year'){
     if (value > 2199) return 'stalled';
@@ -3559,6 +3564,13 @@ function wmComputeMetric(row, mode, pct, pct2){
   if (mode === 'year'){
     return wmYearAt(row, pct / 100);
   }
+  if (mode === 'share'){
+    // Current BEV share from the Weibull model at today's date
+    const now = new Date();
+    const nowFrac = now.getUTCFullYear() + (now.getUTCMonth() + (now.getUTCDate()-1)/31) / 12;
+    const x = nowFrac - row.baseYear + 1;
+    return bevShareIndex(x, row.v1, row.v2, row.t0) * 100;
+  }
   const from = wmYearAt(row, pct  / 100);
   const to   = wmYearAt(row, pct2 / 100);
   if (!isFinite(from) || !isFinite(to)) return NaN;
@@ -3567,6 +3579,7 @@ function wmComputeMetric(row, mode, pct, pct2){
 
 function wmFmt(mode, value){
   if (!isFinite(value)) return '—';
+  if (mode === 'share') return value.toFixed(1) + '%';
   return mode === 'year' ? wmYearFmt(value) : wmDurationFmt(value);
 }
 
@@ -3668,6 +3681,7 @@ function wmRender(){
   // Toggle input visibility
   document.getElementById('wmInputsYear').style.display    = mode === 'year' ? 'flex' : 'none';
   document.getElementById('wmInputsDuration').style.display = mode === 'duration' ? 'flex' : 'none';
+  // Share mode needs no threshold inputs
 
   // Compute metrics + classify
   const data = rows.map(r => {
@@ -3682,9 +3696,11 @@ function wmRender(){
   const stalled = data.filter(d => d.cls === 'stalled');
 
   const normalVals = normal.map(d => d.v);
-  const [zmin, zmax] = wmPercentileRange(normalVals);
+  // For share mode, fixed 0-100% range; otherwise percentile clip
+  const [zmin, zmax] = mode === 'share' ? [0, 100] : wmPercentileRange(normalVals);
 
-  // Green-to-orange continuous scale for normal countries
+  // Color scales: for share mode, reverse (red=low → green=high, higher share = better)
+  // For year/duration: green=early/fast → red=late/slow
   const greenOrange = [
     [0,   '#1a9641'],
     [0.25,'#72bf6a'],
@@ -3692,12 +3708,22 @@ function wmRender(){
     [0.75,'#f5a646'],
     [1,   '#d7191c']
   ];
+  const shareScale = [
+    [0,   '#d7191c'],
+    [0.25,'#f5a646'],
+    [0.5, '#f7f76e'],
+    [0.75,'#72bf6a'],
+    [1,   '#1a9641']
+  ];
+  const colorscale = mode === 'share' ? shareScale : greenOrange;
 
   const markerLine = { color: '#0b1324', width: 0.5 };
 
   const colorbarTitle = mode === 'year'
     ? `Year → ${pct}%`
-    : `${pct}→${pct2}% (years)`;
+    : mode === 'duration'
+    ? `${pct}→${pct2}% (years)`
+    : 'BEV share (%)';
 
   const traceNormal = {
     type: 'choropleth', locationmode: 'country names',
@@ -3705,7 +3731,7 @@ function wmRender(){
     z: normalVals,
     text: normal.map(d => wmHover(d.r, mode, pct, pct2, d.v)),
     hovertemplate: '%{text}',
-    colorscale: greenOrange,
+    colorscale: colorscale,
     reversescale: false,
     zmin, zmax,
     marker: { line: markerLine },
@@ -3714,7 +3740,7 @@ function wmRender(){
       tickfont: { color: '#9fb3d1', size: 11 },
       outlinewidth: 0, thickness: 14, len: 0.85,
       bgcolor: 'rgba(0,0,0,0)',
-      tickformat: mode === 'duration' ? '.1f' : 'd'
+      tickformat: mode === 'share' ? '.0f' : mode === 'duration' ? '.1f' : 'd'
     }
   };
 
@@ -3785,15 +3811,20 @@ function wmRender(){
   if (expl){
     if (mode === 'year'){
       expl.innerHTML = `Showing the <b>year</b> each country's BEV inflow share reaches <b>${pct}%</b> — same underlying Weibull model as the <em>Thresholds</em> tab, just painted on a map.`;
-    } else {
+    } else if (mode === 'duration'){
       expl.innerHTML = `Showing the <b>transition time</b> from <b>${pct}%</b> to <b>${pct2}%</b> BEV inflow share — same model as the <em>Durations</em> tab, viewed geographically.`;
+    } else {
+      const now = new Date();
+      const mNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      expl.innerHTML = `Showing the <b>modeled BEV inflow share</b> as of <b>${mNames[now.getUTCMonth()]} ${now.getUTCFullYear()}</b> — the Weibull curve evaluated at today's date. Not actual data; this is what the fitted model predicts right now. Actual trailing-12-month shares may follow in a future update.`;
     }
   }
 
   // Leaders + Laggards (normal countries only, sorted by metric value)
+  // For share mode, higher = better, so reverse the sort
   const sortable = normal.slice().sort((a,b) => a.v - b.v);
-  const top5 = sortable.slice(0, 5);
-  const bot5 = sortable.slice(-5).reverse();
+  const top5 = mode === 'share' ? sortable.slice(-5).reverse() : sortable.slice(0, 5);
+  const bot5 = mode === 'share' ? sortable.slice(0, 5) : sortable.slice(-5).reverse();
 
   const fmtLi = (d, tag) => {
     const txt = wmFmt(mode, d.v);
