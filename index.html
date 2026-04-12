@@ -3588,9 +3588,10 @@ function wmPioneerCutoff(row){
 // "pioneer" — it can only be normal or stalled (at least one endpoint
 // unreachable within the fitted horizon).
 function wmClassify(mode, value, row){
-  // v1 was patched from exactly 0 to -1e-24 → degenerate model, always stalled
-  // (except in share mode where it just shows ~0%)
-  if (Math.abs(row.v1) < 1e-20) return mode === 'share' ? 'normal' : 'stalled';
+  // v1 was patched from exactly 0 to -1e-24 → CSV precision too low.
+  // This happens for extremely fast transitions (e.g. Indonesia) where
+  // v1 is so small that it rounds to 0. Classify as pioneer, not stalled.
+  if (Math.abs(row.v1) < 1e-20) return mode === 'share' ? 'normal' : 'pioneer';
   if (mode === 'share') return 'normal';   // every country gets a 0-100% value
   if (!isFinite(value)) return 'stalled';
   if (mode === 'year'){
