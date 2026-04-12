@@ -1019,7 +1019,7 @@ th.sortable.desc::after{content:" ↓"}
         </label>
         <label class="chip">
           <input type="radio" name="wmMode" value="share">
-          Current BEV share (model)
+          BEV share timeline
         </label>
       </div>
 
@@ -1031,6 +1031,19 @@ th.sortable.desc::after{content:" ↓"}
               data-tip="BEV share of new registrations at which the map 'fires'. 80% matches the default Thresholds column; 50% is the halfway pivot; 95% shows the last stragglers. Integer from 1 to 99.">i</span>
           </div>
           <input id="wmThreshold" type="number" min="1" max="99" step="1" value="80" style="width:90px">
+        </div>
+      </div>
+
+      <div id="wmInputsShare" style="display:none; flex-wrap:wrap; gap:14px; align-items:center; margin-top:12px;">
+        <div class="field" style="flex:1; min-width:220px;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <label for="wmShareYear">Year</label>
+            <span class="info-tip"
+              data-tip="Drag to scrub through time and watch BEV shares evolve across the world map. The Weibull model is evaluated at the selected date for every country. Hit ▶ to auto-play.">i</span>
+            <span id="wmShareYearLabel" style="font-weight:700; font-size:15px; color:#eef3ff; margin-left:6px;">2026</span>
+            <button id="wmPlayBtn" class="wm-btn" style="margin-left:8px; padding:4px 10px; font-size:13px;" title="Auto-play timeline">▶</button>
+          </div>
+          <input id="wmShareYear" type="range" min="2010" max="2070" step="1" value="2026" style="width:100%; margin-top:6px; accent-color:#4da3ff;">
         </div>
       </div>
 
@@ -3565,10 +3578,10 @@ function wmComputeMetric(row, mode, pct, pct2){
     return wmYearAt(row, pct / 100);
   }
   if (mode === 'share'){
-    // Current BEV share from the Weibull model at today's date
-    const now = new Date();
-    const nowFrac = now.getUTCFullYear() + (now.getUTCMonth() + (now.getUTCDate()-1)/31) / 12;
-    const x = nowFrac - row.baseYear + 1;
+    // BEV share from the Weibull model at selected year (slider or default=today)
+    const slider = document.getElementById('wmShareYear');
+    const yearVal = slider ? parseFloat(slider.value) : new Date().getUTCFullYear();
+    const x = yearVal - row.baseYear + 1;
     return bevShareIndex(x, row.v1, row.v2, row.t0) * 100;
   }
   const from = wmYearAt(row, pct  / 100);
@@ -3679,9 +3692,9 @@ function wmRender(){
   const rows = WORLDMAP_STATE.rows;
 
   // Toggle input visibility
-  document.getElementById('wmInputsYear').style.display    = mode === 'year' ? 'flex' : 'none';
-  document.getElementById('wmInputsDuration').style.display = mode === 'duration' ? 'flex' : 'none';
-  // Share mode needs no threshold inputs
+  document.getElementById('wmInputsYear').style.display     = mode === 'year' ? 'flex' : 'none';
+  document.getElementById('wmInputsDuration').style.display  = mode === 'duration' ? 'flex' : 'none';
+  document.getElementById('wmInputsShare').style.display     = mode === 'share' ? 'flex' : 'none';
 
   // Compute metrics + classify
   const data = rows.map(r => {
@@ -3719,11 +3732,12 @@ function wmRender(){
 
   const markerLine = { color: '#0b1324', width: 0.5 };
 
+  const shareYr = mode === 'share' ? (document.getElementById('wmShareYear')?.value || '2026') : '';
   const colorbarTitle = mode === 'year'
     ? `Year → ${pct}%`
     : mode === 'duration'
     ? `${pct}→${pct2}% (years)`
-    : 'BEV share (%)';
+    : `BEV % (${shareYr})`;
 
   const traceNormal = {
     type: 'choropleth', locationmode: 'country names',
@@ -3814,9 +3828,9 @@ function wmRender(){
     } else if (mode === 'duration'){
       expl.innerHTML = `Showing the <b>transition time</b> from <b>${pct}%</b> to <b>${pct2}%</b> BEV inflow share — same model as the <em>Durations</em> tab, viewed geographically.`;
     } else {
-      const now = new Date();
-      const mNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      expl.innerHTML = `Showing the <b>modeled BEV inflow share</b> as of <b>${mNames[now.getUTCMonth()]} ${now.getUTCFullYear()}</b> — the Weibull curve evaluated at today's date. Not actual data; this is what the fitted model predicts right now. Actual trailing-12-month shares may follow in a future update.`;
+      const slider = document.getElementById('wmShareYear');
+      const yr = slider ? slider.value : new Date().getUTCFullYear();
+      expl.innerHTML = `Showing the <b>modeled BEV inflow share</b> in <b>${yr}</b> — the Weibull curve evaluated at the selected year. Drag the slider or hit <b>▶</b> to watch the global transition unfold over time.`;
     }
   }
 
@@ -3876,6 +3890,56 @@ async function initWorldMap(){
       const el = document.getElementById(id);
       if (el) el.addEventListener('input', debouncedRender);
     });
+
+    // Share timeline slider
+    const shareSlider = document.getElementById('wmShareYear');
+    const shareLabel  = document.getElementById('wmShareYearLabel');
+    if (shareSlider){
+      // Set default to current year
+      const curYear = new Date().getUTCFullYear();
+      shareSlider.value = Math.min(Math.max(curYear, 2010), 2070);
+      if (shareLabel) shareLabel.textContent = shareSlider.value;
+
+      shareSlider.addEventListener('input', () => {
+        if (shareLabel) shareLabel.textContent = shareSlider.value;
+        wmRender();
+      });
+    }
+
+    // Play button — auto-advance slider
+    let wmPlayInterval = null;
+    const playBtn = document.getElementById('wmPlayBtn');
+    if (playBtn && shareSlider){
+      playBtn.addEventListener('click', () => {
+        if (wmPlayInterval){
+          // Stop
+          clearInterval(wmPlayInterval);
+          wmPlayInterval = null;
+          playBtn.textContent = '▶';
+          playBtn.classList.remove('is-active');
+          return;
+        }
+        // Start from current position (or reset to 2010 if at end)
+        if (parseInt(shareSlider.value) >= parseInt(shareSlider.max)){
+          shareSlider.value = shareSlider.min;
+        }
+        playBtn.textContent = '⏸';
+        playBtn.classList.add('is-active');
+        wmPlayInterval = setInterval(() => {
+          const next = parseInt(shareSlider.value) + 1;
+          if (next > parseInt(shareSlider.max)){
+            clearInterval(wmPlayInterval);
+            wmPlayInterval = null;
+            playBtn.textContent = '▶';
+            playBtn.classList.remove('is-active');
+            return;
+          }
+          shareSlider.value = next;
+          if (shareLabel) shareLabel.textContent = next;
+          wmRender();
+        }, 350);
+      });
+    }
 
     // Region buttons
     const regionBtns = document.querySelectorAll('#wmRegionBar button[data-region]');
