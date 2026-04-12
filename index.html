@@ -3514,24 +3514,29 @@ function wmBuildRows(csvRows){
 
   const out = [];
   for (const r of byCountry.values()){
-    const v1 = normNumber(r.v1);
-    // Skip countries whose v1 is exactly 0 — the Weibull is degenerate
-    // (e.g. Indonesia where the CSV precision rounds to 0). A tiny
-    // placeholder like -1e-24 is fine and will classify as stalled.
-    // TODO: fix upstream CSV precision for Indonesia.
-    if (v1 === 0 || !isFinite(v1)) continue;
+    let v1 = normNumber(r.v1);
+    // v1 exactly 0 means the CSV precision rounded away a tiny negative
+    // value (e.g. Indonesia). Patch to -1e-24 so the Weibull is technically
+    // valid but yields ~0% share → classifies as stalled automatically.
+    if (!isFinite(v1)) continue;
+    if (v1 === 0) v1 = -1e-24;
 
     // Resolve baseYear: prefer baseline_year → baseline_date → t0 as
     // calendar year (if ≥1800). The live CSV has no baseline_year or
     // baseline_date columns, so t0 (a calendar year like 2009) is the
     // only source for most countries.
-    let baseYear = normNumber(r.baseline_year);
+    // normNumber returns 0 for undefined/empty, so check for actual field presence
+    let baseYear = NaN;
+    if (r.baseline_year != null && String(r.baseline_year).trim() !== ''){
+      baseYear = normNumber(r.baseline_year);
+    }
     if (!isFinite(baseYear) && r.baseline_date && /^\d{4}/.test(r.baseline_date)){
       baseYear = parseInt(r.baseline_date.slice(0,4), 10);
     }
     if (!isFinite(baseYear)){
-      const t0raw = normNumber((r.t0||'').trim());
-      if (isFinite(t0raw) && t0raw >= 1800) baseYear = Math.round(t0raw);
+      const t0str = String(r.t0 || '').trim();
+      const t0raw = normNumber(t0str);
+      if (t0str !== '' && isFinite(t0raw) && t0raw >= 1800) baseYear = Math.round(t0raw);
     }
 
     out.push({
@@ -3540,6 +3545,7 @@ function wmBuildRows(csvRows){
       v1,
       v2:       normNumber(r.v2),
       t0:       getT0Years(r),
+      _t0raw:   normNumber((r.t0||'').trim()),  // calendar year from CSV, for direct share calc
       baseYear,
       baseDate: r.baseline_date || ''
     });
@@ -3582,6 +3588,9 @@ function wmPioneerCutoff(row){
 // "pioneer" — it can only be normal or stalled (at least one endpoint
 // unreachable within the fitted horizon).
 function wmClassify(mode, value, row){
+  // v1 was patched from exactly 0 to -1e-24 → degenerate model, always stalled
+  // (except in share mode where it just shows ~0%)
+  if (Math.abs(row.v1) < 1e-20) return mode === 'share' ? 'normal' : 'stalled';
   if (mode === 'share') return 'normal';   // every country gets a 0-100% value
   if (!isFinite(value)) return 'stalled';
   if (mode === 'year'){
@@ -3598,11 +3607,14 @@ function wmComputeMetric(row, mode, pct, pct2){
     return wmYearAt(row, pct / 100);
   }
   if (mode === 'share'){
-    // BEV share from the Weibull model at selected year (slider or default=today)
+    // BEV share using raw CSV formula: 1 - exp(v1 * (calYear - t0_calendar)^v2)
+    // The CSV stores t0 as a calendar year (e.g. 2009), not index-time.
     const slider = document.getElementById('wmShareYear');
     const yearVal = slider ? parseFloat(slider.value) : new Date().getUTCFullYear();
-    const x = yearVal - row.baseYear + 1;
-    return bevShareIndex(x, row.v1, row.v2, row.t0) * 100;
+    const t0cal = normNumber(String(row._t0raw || row.baseYear));
+    const z = yearVal - t0cal;
+    if (z <= 0) return 0;
+    return Math.max(0, Math.min(100, (1 - Math.exp(row.v1 * Math.pow(z, row.v2))) * 100));
   }
   const from = wmYearAt(row, pct  / 100);
   const to   = wmYearAt(row, pct2 / 100);
