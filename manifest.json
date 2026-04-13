@@ -1,5 +1,5 @@
 {
-  "updated": "2026-04-12",
+  "updated": "2026-04-13",
   "images": [
     {
       "country": "India",
@@ -442,43 +442,43 @@
       "country_slug": "switzerland"
     },
     {
-      "country": "Uk",
+      "country": "UK",
       "type": "ICE_BEV",
       "period": "2026-02",
       "date": "2026-03-28",
       "filename": "uk_ICE_BEV_20260328.png",
       "url": "images/2026-02/uk_ICE_BEV_20260328.png",
-      "alt": "Uk ICE-BEV-Hybrid trajectory",
+      "alt": "UK ICE-BEV-Hybrid trajectory",
       "country_slug": "uk"
     },
     {
-      "country": "Uk",
+      "country": "UK",
       "type": "share",
       "period": "2026-02",
       "date": "2026-03-28",
       "filename": "uk_20260328.png",
       "url": "images/2026-02/uk_20260328.png",
-      "alt": "Uk BEV trajectory",
+      "alt": "UK BEV trajectory",
       "country_slug": "uk"
     },
     {
-      "country": "Uk",
+      "country": "UK",
       "type": "time",
       "period": "2026-02",
       "date": "2026-03-28",
       "filename": "uk_time_20260328.png",
       "url": "images/2026-02/uk_time_20260328.png",
-      "alt": "Uk Transition time curve",
+      "alt": "UK Transition time curve",
       "country_slug": "uk"
     },
     {
-      "country": "Uk",
+      "country": "UK",
       "type": "ttm_shares",
       "period": "2026-02",
       "date": "2026-03-28",
       "filename": "uk_ttm_shares_20260328.png",
       "url": "images/2026-02/uk_ttm_shares_20260328.png",
-      "alt": "Uk TTM market split graph",
+      "alt": "UK TTM market split graph",
       "country_slug": "uk"
     },
     {
@@ -1632,43 +1632,43 @@
       "country_slug": "denmark_private"
     },
     {
-      "country": "Usa",
+      "country": "USA",
       "type": "ICE_BEV",
       "period": "2026-02",
       "date": "2026-03-14",
       "filename": "usa_ICE_BEV_20260314.png",
       "url": "images/2026-02/usa_ICE_BEV_20260314.png",
-      "alt": "Usa ICE-BEV-Hybrid trajectory",
+      "alt": "USA ICE-BEV-Hybrid trajectory",
       "country_slug": "usa"
     },
     {
-      "country": "Usa",
+      "country": "USA",
       "type": "share",
       "period": "2026-02",
       "date": "2026-03-14",
       "filename": "usa_20260314.png",
       "url": "images/2026-02/usa_20260314.png",
-      "alt": "Usa BEV trajectory",
+      "alt": "USA BEV trajectory",
       "country_slug": "usa"
     },
     {
-      "country": "Usa",
+      "country": "USA",
       "type": "time",
       "period": "2026-02",
       "date": "2026-03-14",
       "filename": "usa_time_20260314.png",
       "url": "images/2026-02/usa_time_20260314.png",
-      "alt": "Usa Transition time curve",
+      "alt": "USA Transition time curve",
       "country_slug": "usa"
     },
     {
-      "country": "Usa",
+      "country": "USA",
       "type": "ttm_shares",
       "period": "2026-02",
       "date": "2026-03-14",
       "filename": "usa_ttm_shares_20260314.png",
       "url": "images/2026-02/usa_ttm_shares_20260314.png",
-      "alt": "Usa TTM market split graph",
+      "alt": "USA TTM market split graph",
       "country_slug": "usa"
     },
     {
@@ -2942,83 +2942,83 @@
       "country_slug": "luxembourg"
     },
     {
-      "country": "Usa",
+      "country": "USA",
       "type": "ICE_BEV",
       "period": "2025-10",
       "date": "2025-12-12",
       "filename": "usa_ICE_BEV_20251212.png",
       "url": "images/2025-10/usa_ICE_BEV_20251212.png",
-      "alt": "Usa ICE-BEV-Hybrid trajectory",
+      "alt": "USA ICE-BEV-Hybrid trajectory",
       "country_slug": "usa"
     },
     {
-      "country": "Usa",
+      "country": "USA",
       "type": "share",
       "period": "2025-10",
       "date": "2025-12-12",
       "filename": "usa_20251212.png",
       "url": "images/2025-10/usa_20251212.png",
-      "alt": "Usa BEV trajectory",
+      "alt": "USA BEV trajectory",
       "country_slug": "usa"
     },
     {
-      "country": "Usa",
+      "country": "USA",
       "type": "time",
       "period": "2025-10",
       "date": "2025-12-12",
       "filename": "usa_time_20251212.png",
       "url": "images/2025-10/usa_time_20251212.png",
-      "alt": "Usa Transition time curve",
+      "alt": "USA Transition time curve",
       "country_slug": "usa"
     },
     {
-      "country": "Usa",
+      "country": "USA",
       "type": "ttm_shares",
       "period": "2025-10",
       "date": "2025-12-12",
       "filename": "usa_ttm_shares_20251212.png",
       "url": "images/2025-10/usa_ttm_shares_20251212.png",
-      "alt": "Usa TTM market split graph",
+      "alt": "USA TTM market split graph",
       "country_slug": "usa"
     },
     {
-      "country": "Usa",
+      "country": "USA",
       "type": "ICE_BEV",
       "period": "2025-10",
       "date": "2025-12-11",
       "filename": "usa_ICE_BEV_20251211.png",
       "url": "images/2025-10/usa_ICE_BEV_20251211.png",
-      "alt": "Usa ICE-BEV-Hybrid trajectory",
+      "alt": "USA ICE-BEV-Hybrid trajectory",
       "country_slug": "usa"
     },
     {
-      "country": "Usa",
+      "country": "USA",
       "type": "share",
       "period": "2025-10",
       "date": "2025-12-11",
       "filename": "usa_20251211.png",
       "url": "images/2025-10/usa_20251211.png",
-      "alt": "Usa BEV trajectory",
+      "alt": "USA BEV trajectory",
       "country_slug": "usa"
     },
     {
-      "country": "Usa",
+      "country": "USA",
       "type": "time",
       "period": "2025-10",
       "date": "2025-12-11",
       "filename": "usa_time_20251211.png",
       "url": "images/2025-10/usa_time_20251211.png",
-      "alt": "Usa Transition time curve",
+      "alt": "USA Transition time curve",
       "country_slug": "usa"
     },
     {
-      "country": "Usa",
+      "country": "USA",
       "type": "ttm_shares",
       "period": "2025-10",
       "date": "2025-12-11",
       "filename": "usa_ttm_shares_20251211.png",
       "url": "images/2025-10/usa_ttm_shares_20251211.png",
-      "alt": "Usa TTM market split graph",
+      "alt": "USA TTM market split graph",
       "country_slug": "usa"
     },
     {
