@@ -3672,6 +3672,10 @@ document.addEventListener('click', (e) => {
   bubble.className = 'info-bubble show';
   bubble.textContent = text;
   clickedTip.appendChild(bubble);
+  // keep bubble inside viewport
+  const r = bubble.getBoundingClientRect();
+  if (r.left < 4) bubble.style.transform = `translateX(${-r.left + 4}px)`;
+  else if (r.right > window.innerWidth - 4) bubble.style.transform = `translateX(${window.innerWidth - 4 - r.right}px)`;
 });
 
 document.addEventListener('keydown', (e) => {
