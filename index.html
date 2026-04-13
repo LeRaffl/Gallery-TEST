@@ -51,6 +51,11 @@ td.late {
 .side h2{margin:0 0 8px;font-size:14px;opacity:.9}
 select,input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #273145;background:#0f1525;color:#e9eef2}
 select{appearance:none;-webkit-appearance:none;-moz-appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23e9eef2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");background-repeat:no-repeat;background-position:right 12px center;background-size:12px 12px;padding-right:36px}
+select[multiple]{background-image:none;padding-right:12px;scrollbar-width:thin;scrollbar-color:#2a3654 #0b1324}
+select[multiple] option{padding:6px 10px;border-radius:6px;margin:1px 2px;transition:background .1s}
+select[multiple] option:checked{background:#1a3a5c linear-gradient(0deg,#1a3a5c,#1a3a5c);color:#7cc4ff;font-weight:600}
+select[multiple] option:hover{background:#162845}
+select[multiple]:focus{border-color:#3a6fad;outline:none;box-shadow:0 0 0 2px rgba(77,163,255,0.15)}
 .chips{display:flex;flex-direction:column;gap:8px;margin-top:8px}
 .chip{display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid #2a3654;background:#0b1324;border-radius:10px;font-size:14px;font-weight:600;color:#eef3ff;white-space:nowrap;cursor:pointer;transition:border-color .15s,background .15s,color .15s}
 .chip:hover{border-color:#3a4a72}
@@ -97,6 +102,8 @@ dialog#lightbox::backdrop{background:rgba(0,0,0,.6)}
 .lbbox{position:relative;display:inline-block;max-width:min(96vw,1600px);max-height:92vh}
 .lbbox img{width:auto;height:auto;max-width:100%;max-height:92vh;object-fit:contain;display:block;border-radius:10px;background:#0b0c10}
 .btn.x{position:absolute;top:8px;right:8px;z-index:3;line-height:1;border-radius:999px;padding:10px 12px}
+.btn.lb-dl{position:absolute;top:8px;left:8px;z-index:3;line-height:1;border-radius:999px;padding:10px 14px;font-size:16px;font-weight:700;background:#101a33cc;backdrop-filter:blur(4px);text-decoration:none}
+.chart-dl{display:inline-flex;align-items:center;gap:6px;margin:8px 0;padding:8px 14px;font-size:13px}
 @media (max-width:600px){.lb{padding:12px}.lbbox{max-width:98vw;max-height:86vh}.lbbox img{max-height:86vh}.btn.x{top:auto;bottom:8px;right:8px}}
 
 /* Thresholds + Durations shared */
@@ -141,6 +148,53 @@ th.sortable.desc::after{content:" ↓"}
   .side{position:static;top:auto;z-index:auto}
   .page{gap:12px}
   select,[role="listbox"]{max-height:50vh;overflow:auto;-webkit-overflow-scrolling:touch}
+
+  /* Table horizontal scroll hint */
+  .tablecard{
+    position:relative;
+  }
+  .tablecard::after{
+    content:'';
+    position:absolute;
+    top:0;bottom:0;right:0;width:28px;
+    background:linear-gradient(to right,transparent,rgba(15,21,37,0.85));
+    pointer-events:none;
+    border-radius:0 14px 14px 0;
+  }
+  .tablecard.scrolled-end::after{display:none}
+
+  /* Tighter table cells on mobile */
+  #tab-thresholds .tablecard th,
+  #tab-thresholds .tablecard td,
+  #tab-durations .tablecard th,
+  #tab-durations .tablecard td{
+    padding:8px 8px;
+    font-size:13px;
+  }
+  #tab-thresholds .tablecard th:nth-child(2),
+  #tab-thresholds .tablecard td:nth-child(2),
+  #tab-durations .tablecard th:nth-child(2),
+  #tab-durations .tablecard td:nth-child(2){
+    min-width:110px;
+  }
+  #tab-thresholds .tablecard th:nth-child(3),
+  #tab-thresholds .tablecard th:nth-child(4),
+  #tab-thresholds .tablecard th:nth-child(5),
+  #tab-thresholds .tablecard th:nth-child(6),
+  #tab-thresholds .tablecard td:nth-child(3),
+  #tab-thresholds .tablecard td:nth-child(4),
+  #tab-thresholds .tablecard td:nth-child(5),
+  #tab-thresholds .tablecard td:nth-child(6),
+  #tab-durations .tablecard th:nth-child(3),
+  #tab-durations .tablecard th:nth-child(4),
+  #tab-durations .tablecard th:nth-child(5),
+  #tab-durations .tablecard td:nth-child(3),
+  #tab-durations .tablecard td:nth-child(4),
+  #tab-durations .tablecard td:nth-child(5){
+    min-width:80px;
+  }
+  .variant-col{min-width:120px}
+  .data-per-col{min-width:72px}
 }
 
 /* Thresholds + Durations table harmonization */
@@ -517,7 +571,8 @@ section.tab .container > h2 { margin: 6px 0 12px; }
       <div class="lb">
         <div class="lbbox">
           <button class="btn x" onclick="lb.close()" aria-label="Close preview">✕</button>
-          <img src="about:blank" alt=""/> 
+          <a id="lbDownload" class="btn lb-dl" download aria-label="Download image">↓</a>
+          <img src="about:blank" alt=""/>
         </div>
       </div>
     </dialog>
@@ -551,6 +606,7 @@ section.tab .container > h2 { margin: 6px 0 12px; }
             <button id="exportCsv" class="btn">CSV</button>
             <button id="exportCsvEU" class="btn">CSV (EU)</button>
             <button id="copyCsv" class="btn">Copy CSV</button>
+            <button id="exportThresholdsPng" class="btn">PNG</button>
           </div>
         </div>
       </div>
@@ -586,6 +642,7 @@ section.tab .container > h2 { margin: 6px 0 12px; }
             <button id="exportDurCsv" class="btn">CSV</button>
             <button id="exportDurCsvEU" class="btn">CSV (EU)</button>
             <button id="copyDurCsv" class="btn">Copy CSV</button>
+            <button id="exportDurPng" class="btn">PNG</button>
           </div>
         </div>
       </div>
@@ -678,6 +735,7 @@ section.tab .container > h2 { margin: 6px 0 12px; }
         </p>
       <div class="card builder-card">
         <div id="builderPlot"></div>
+        <button class="btn chart-dl" onclick="downloadPlotlyChart('builderPlot','builder_chart.png')">↓ Download PNG</button>
       </div>
     </div>
     <div id="builderDebug" class="small" style="margin-top:10px;opacity:.85"></div>
@@ -1013,6 +1071,7 @@ section.tab .container > h2 { margin: 6px 0 12px; }
 
 <div class="card">
   <div id="fleetPlot" style="height:520px;"></div>
+  <button class="btn chart-dl" onclick="downloadPlotlyChart('fleetPlot','fleet_chart.png')">↓ Download PNG</button>
 </div>
 </div>
 
@@ -1126,6 +1185,7 @@ section.tab .container > h2 { margin: 6px 0 12px; }
         <button class="wm-btn wm-btn-zoom" data-zoom="reset" title="Reset view">⟲</button>
       </div>
       <div id="worldMapPlot" style="height:620px"></div>
+      <button class="btn chart-dl" onclick="downloadPlotlyChart('worldMapPlot','world_map.png')">↓ Download PNG</button>
       <p class="small" style="margin:4px 14px 10px; color:#6f86ad;">
         Color scale is clipped at the 5th and 95th percentile so regular countries get a useful gradient.
         <b style="color:#00e5ff">Cyan</b> = pioneers that have already reached the threshold.
@@ -1278,6 +1338,7 @@ function loadWorldMapWhenActive() {
 // Bei jedem Tab-Wechsel prüfen
 window.addEventListener('hashchange', () => {
   activateTabByHash();
+  wmStopPlay();
   loadFleetWhenActive();
   loadWorldMapWhenActive();
 });
@@ -1288,9 +1349,149 @@ window.addEventListener('DOMContentLoaded', () => {
   loadWorldMapWhenActive();
 });
   
+// -------- Plotly chart download helper --------
+function downloadPlotlyChart(plotId, filename){
+  if (typeof Plotly === 'undefined') return;
+  Plotly.toImage(plotId, {format:'png', width:1200, height:700, scale:2}).then(url => {
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+  }).catch(err => console.warn('Chart download failed:', err));
+}
+
+// -------- Table → PNG export --------
+function tableToImage(tableEl, filename, title){
+  const rows = tableEl.querySelectorAll('tr');
+  if (!rows.length) return;
+
+  const pad = 16, cellPad = 10, rowH = 32, headerH = 36, footerH = 40;
+  const cols = rows[0].querySelectorAll('th,td').length;
+
+  // Measure column widths from text
+  const ctx0 = document.createElement('canvas').getContext('2d');
+  ctx0.font = '13px system-ui, sans-serif';
+  const colWidths = new Array(cols).fill(60);
+  rows.forEach(row => {
+    row.querySelectorAll('th,td').forEach((cell, ci) => {
+      if (ci < cols) colWidths[ci] = Math.max(colWidths[ci], ctx0.measureText(cell.textContent.trim()).width + cellPad * 2 + 4);
+    });
+  });
+  // Header font is bolder
+  ctx0.font = 'bold 13px system-ui, sans-serif';
+  rows[0].querySelectorAll('th,td').forEach((cell, ci) => {
+    if (ci < cols) colWidths[ci] = Math.max(colWidths[ci], ctx0.measureText(cell.textContent.trim()).width + cellPad * 2 + 4);
+  });
+
+  const titleH = title ? 40 : 0;
+  const tableW = colWidths.reduce((a, b) => a + b, 0);
+  const W = tableW + pad * 2;
+  const H = titleH + headerH + (rows.length - 1) * rowH + footerH + pad * 2;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = W * 2; canvas.height = H * 2;
+  const c = canvas.getContext('2d');
+  c.scale(2, 2);
+
+  // Background
+  c.fillStyle = '#0b0c10';
+  c.fillRect(0, 0, W, H);
+
+  let y = pad;
+
+  // Title
+  if (title) {
+    c.fillStyle = '#e9eef2';
+    c.font = 'bold 15px system-ui, sans-serif';
+    c.fillText(title, pad, y + 20);
+    y += titleH;
+  }
+
+  // Header
+  c.fillStyle = '#0e1a34';
+  c.fillRect(pad, y, tableW, headerH);
+  c.fillStyle = '#e9eef2';
+  c.font = 'bold 12px system-ui, sans-serif';
+  const headerCells = rows[0].querySelectorAll('th,td');
+  let x = pad;
+  headerCells.forEach((cell, ci) => {
+    if (ci < cols) {
+      c.fillText(cell.textContent.trim(), x + cellPad, y + headerH / 2 + 4, colWidths[ci] - cellPad * 2);
+      x += colWidths[ci];
+    }
+  });
+  y += headerH;
+
+  // Data rows
+  c.font = '12px system-ui, sans-serif';
+  for (let ri = 1; ri < rows.length; ri++) {
+    // Zebra
+    if (ri % 2 === 0) {
+      c.fillStyle = 'rgba(255,255,255,0.03)';
+      c.fillRect(pad, y, tableW, rowH);
+    }
+    const cells = rows[ri].querySelectorAll('th,td');
+    x = pad;
+    cells.forEach((cell, ci) => {
+      if (ci >= cols) return;
+      // Color coding
+      if (cell.classList.contains('past')) {
+        c.fillStyle = 'rgba(60,180,120,0.18)';
+        c.fillRect(x, y, colWidths[ci], rowH);
+        c.fillStyle = '#bff5d8';
+      } else if (cell.classList.contains('late')) {
+        c.fillStyle = 'rgba(220,80,80,0.18)';
+        c.fillRect(x, y, colWidths[ci], rowH);
+        c.fillStyle = '#ffb4b4';
+      } else {
+        c.fillStyle = '#c8d6e5';
+      }
+      c.fillText(cell.textContent.trim(), x + cellPad, y + rowH / 2 + 4, colWidths[ci] - cellPad * 2);
+      x += colWidths[ci];
+    });
+    // Grid line
+    c.strokeStyle = 'rgba(31,42,68,0.6)';
+    c.beginPath(); c.moveTo(pad, y + rowH); c.lineTo(pad + tableW, y + rowH); c.stroke();
+    y += rowH;
+  }
+
+  // Footer: timestamp + tag
+  y += 8;
+  const now = new Date();
+  const ts = now.getUTCFullYear() + '-' +
+    String(now.getUTCMonth() + 1).padStart(2, '0') + '-' +
+    String(now.getUTCDate()).padStart(2, '0') + ' ' +
+    String(now.getUTCHours()).padStart(2, '0') + ':' +
+    String(now.getUTCMinutes()).padStart(2, '0') + ' UTC';
+  c.fillStyle = '#6f86ad';
+  c.font = '11px system-ui, sans-serif';
+  c.fillText(ts, pad, y + 12);
+  c.fillStyle = '#9fb3d1';
+  c.font = 'bold 11px system-ui, sans-serif';
+  c.textAlign = 'right';
+  c.fillText('@LeRaffl', W - pad, y + 12);
+  c.textAlign = 'left';
+
+  // Download
+  const a = document.createElement('a');
+  a.download = filename;
+  a.href = canvas.toDataURL('image/png');
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+// Wire up PNG export buttons
+document.getElementById('exportThresholdsPng')?.addEventListener('click', () => {
+  const table = document.querySelector('#thresholdsMount table');
+  if (table) tableToImage(table, 'bev_thresholds.png', 'BEV Thresholds (years)');
+});
+document.getElementById('exportDurPng')?.addEventListener('click', () => {
+  const table = document.querySelector('#durationsMount table');
+  if (table) tableToImage(table, 'bev_durations.png', 'BEV Durations');
+});
+
 // -------- Lightbox ergonomics --------
 const lb = document.getElementById('lightbox');
 const lbImg = lb.querySelector('img');
+const lbDl = document.getElementById('lbDownload');
 lb.addEventListener('click', e => { if(e.target === lb) lb.close(); });
 window.addEventListener('keydown', e => { if(lb.open && e.key==='Escape') lb.close(); });
 lbImg.addEventListener('click', () => { if(lb.open) lb.close(); });
@@ -1328,7 +1529,7 @@ function renderColumns(items){
   cols.innerHTML=''; if(items.length===0){ empty.hidden=false; stats.textContent=''; pager.hidden=true; return; } empty.hidden=true;
   const field=sortField.value, dir=sortDir.value; const sorted=[...items].sort((a,b)=>compareItems(a,b,field,dir)); const byType=Object.fromEntries(TYPE_ORDER.map(t=>[t,[]])); sorted.forEach(it=>{ if(byType[it.type]) byType[it.type].push(it); });
   let visibleCount=0,totalCount=0,canLoadMore=false;
-  for(const t of TYPE_ORDER){ const list=byType[t]; if(!list||!list.length) continue; const col=document.createElement('section'); col.className='col'; const h=document.createElement('h3'); h.textContent=TYPE_LABEL[t]; col.append(h); const take=Math.min(list.length,visibleRows); totalCount+=list.length; visibleCount+=take; if(list.length>visibleRows) canLoadMore=true; for(let i=0;i<take;i++){ const it=list[i]; const card=document.createElement('article'); card.className='card g'; const box=document.createElement('div'); box.className='thumbbox'; const img=document.createElement('img'); img.className='thumb'; img.loading='lazy'; img.decoding='async'; img.src=it.url; img.alt=it.alt||`${it.country} – ${it.type}`; img.addEventListener('click',()=>{ lbImg.src=it.url; lbImg.alt=img.alt; lb.showModal(); }); box.append(img); const meta=document.createElement('div'); meta.className='meta'; const right=[it.period||'', it.date||''].filter(Boolean).join(' • '); meta.innerHTML=`<div class="left"><div class="country" title="${it.country}">${it.country}</div><div class="type" title="${TYPE_LABEL[it.type]||it.type}">${TYPE_LABEL[it.type]||it.type}</div></div><div class="date">${right}</div>`; const footer=document.createElement('div'); footer.className='footer'; footer.innerHTML=`<a class="btn" href="${it.url}" download>Download</a><span class="filename">${it.filename}</span>`; card.append(box,meta,footer); col.append(card);} cols.append(col);} stats.innerHTML=`<span class="badge">Showing ${visibleCount} of ${totalCount} charts</span>`; pager.hidden=!canLoadMore; }
+  for(const t of TYPE_ORDER){ const list=byType[t]; if(!list||!list.length) continue; const col=document.createElement('section'); col.className='col'; const h=document.createElement('h3'); h.textContent=TYPE_LABEL[t]; col.append(h); const take=Math.min(list.length,visibleRows); totalCount+=list.length; visibleCount+=take; if(list.length>visibleRows) canLoadMore=true; for(let i=0;i<take;i++){ const it=list[i]; const card=document.createElement('article'); card.className='card g'; const box=document.createElement('div'); box.className='thumbbox'; const img=document.createElement('img'); img.className='thumb'; img.loading='lazy'; img.decoding='async'; img.src=it.url; img.alt=it.alt||`${it.country} – ${it.type}`; img.addEventListener('click',()=>{ lbImg.src=it.url; lbImg.alt=img.alt; lbDl.href=it.url; lbDl.download=it.filename||'chart.png'; lb.showModal(); }); box.append(img); const meta=document.createElement('div'); meta.className='meta'; const right=[it.period||'', it.date||''].filter(Boolean).join(' • '); meta.innerHTML=`<div class="left"><div class="country" title="${it.country}">${it.country}</div><div class="type" title="${TYPE_LABEL[it.type]||it.type}">${TYPE_LABEL[it.type]||it.type}</div></div><div class="date">${right}</div>`; const footer=document.createElement('div'); footer.className='footer'; footer.innerHTML=`<a class="btn" href="${it.url}" download>Download</a><span class="filename">${it.filename}</span>`; card.append(box,meta,footer); col.append(card);} cols.append(col);} stats.innerHTML=`<span class="badge">Showing ${visibleCount} of ${totalCount} charts</span>`; pager.hidden=!canLoadMore; }
 function applyFilters(all){ const q=searchInput.value.trim().toLowerCase(); const allowed=new Set(typeChecks.filter(c=>c.checked).map(c=>c.value)); const country=countrySelect.value; const period=periodSelect.value; let out=all.filter(it=>{ if(country&&it.country!==country) return false; if(!allowed.has(it.type)) return false; if(period&&it.period!==period) return false; const hay=`${it.country} ${it.type} ${it.date} ${it.period} ${it.filename}`.toLowerCase(); return q===''||hay.includes(q);}); if(latestOnly && latestOnly.checked && !period) out=latestByKey(out); return out; }
 loadManifest().then(({images})=>{
   const imgs = Array.isArray(images)?images:[]; if(!imgs.length){ empty.hidden=false; empty.textContent='No charts found. manifest.json loaded but contains no images.'; return; }
@@ -4174,9 +4375,21 @@ function wmRender(){
 
 /* ── Init ── */
 let WORLDMAP_INITED = false;
+let WORLDMAP_LOADING = false;
+let wmPlayInterval = null;
+
+function wmStopPlay(){
+  if (!wmPlayInterval) return;
+  clearInterval(wmPlayInterval);
+  wmPlayInterval = null;
+  const btn = document.getElementById('wmPlayBtn');
+  if (btn){ btn.textContent = '▶'; btn.classList.remove('is-active'); }
+}
+
 async function initWorldMap(){
   if (WORLDMAP_INITED) { wmRender(); return; }
-  WORLDMAP_INITED = true;
+  if (WORLDMAP_LOADING) return;
+  WORLDMAP_LOADING = true;
   const dbg = document.getElementById('worldMapDebugBox');
   try {
     await ensurePlotly();
@@ -4218,18 +4431,10 @@ async function initWorldMap(){
     }
 
     // Play button — auto-advance slider
-    let wmPlayInterval = null;
     const playBtn = document.getElementById('wmPlayBtn');
     if (playBtn && shareSlider){
       playBtn.addEventListener('click', () => {
-        if (wmPlayInterval){
-          // Stop
-          clearInterval(wmPlayInterval);
-          wmPlayInterval = null;
-          playBtn.textContent = '▶';
-          playBtn.classList.remove('is-active');
-          return;
-        }
+        if (wmPlayInterval){ wmStopPlay(); return; }
         // Start from current position (or reset to 2010 if at end)
         if (parseInt(shareSlider.value) >= parseInt(shareSlider.max)){
           shareSlider.value = shareSlider.min;
@@ -4239,10 +4444,7 @@ async function initWorldMap(){
         wmPlayInterval = setInterval(() => {
           const next = parseInt(shareSlider.value) + 1;
           if (next > parseInt(shareSlider.max)){
-            clearInterval(wmPlayInterval);
-            wmPlayInterval = null;
-            playBtn.textContent = '▶';
-            playBtn.classList.remove('is-active');
+            wmStopPlay();
             return;
           }
           shareSlider.value = next;
@@ -4288,13 +4490,22 @@ async function initWorldMap(){
       });
     });
 
+    WORLDMAP_INITED = true;
     wmRender();
   } catch (err){
-    WORLDMAP_INITED = false;
+    WORLDMAP_LOADING = false;
     if (dbg){ dbg.style.display = 'block'; dbg.textContent = 'World map init failed: ' + (err?.message || err); }
     console.error('[worldmap]', err);
   }
 }
+
+// Scroll-shadow hint: hide gradient when scrolled to end
+document.querySelectorAll('.tablecard').forEach(tc => {
+  tc.addEventListener('scroll', () => {
+    const atEnd = tc.scrollLeft + tc.clientWidth >= tc.scrollWidth - 2;
+    tc.classList.toggle('scrolled-end', atEnd);
+  });
+});
 </script>
 </body>
 </html>
