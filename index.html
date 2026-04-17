@@ -842,35 +842,16 @@ section.tab .container > h2 { margin: 6px 0 12px; }
     </div>
   </div>
 
-  <!-- Zeile 3: Categories – volle Breite unten -->
-  <div class="field" style="flex: 1 1 100%; min-width: 100%;">
-    <label>Categories</label>
-<div id="fleetCategoryContainer" style="display: flex; flex-wrap: wrap; gap: 10px;">
-      <label class="chip"><input type="checkbox" id="fleetShowBEV"    checked> BEV</label>
-      <label class="chip"><input type="checkbox" id="fleetShowPHEV"   checked> PHEV</label>
-      <label class="chip"><input type="checkbox" id="fleetShowHEV"    checked> HEV</label>
-      <label class="chip"><input type="checkbox" id="fleetShowOTHERS" checked> OTHERS</label>
-    </div>
-  </div>
 </div>
 
-    <p class="small">
-      Observed fleet stock (on the road) by drivetrain.
-      <br>
-      <em>Projections based on modeled inflow & attrition will be added.</em>
-      <br>
-      <br>If you select multiple countries, they will simply be stacked by category, so if a country doesn't have a split for HYBRID into PHEV and HEV, 
-      <br>you will see 3 bars for HYBRID, PHEV, HEV, instead of two for PHEV and HEV, similar with OTHERS split into PETROL/DIESEL.
-      <br>If no split into PHEV and HEV is available, both are fused into the HYBRID category.
-      <br>If PHEV is available explicitly, it is named as such,. If PHEV is, but HEV is not, HEV are part of the respective ICE category.
-    </p>
-<!-- Card 1: Projection (always visible) -->
-<div class="card" id="fleetProjectionControls" style="margin: 14px 0 0;">
-<div class="fc-section" style="margin-bottom:0;">
-  <div class="fc-section-head">
+<!-- Section 1: Projection (collapsible, starts open) -->
+<div class="fc-section" id="fleetProjectionControls" style="margin: 14px 0 0;">
+  <div class="fc-section-head" style="cursor:pointer; user-select:none;" onclick="fcToggle('fcBodyProjection','fcBtnProjection')">
     <span class="fc-section-title">Projection</span>
     <span class="fc-section-hint">When does the projection run, and how far?</span>
+    <button class="fc-collapse-btn" id="fcBtnProjection" tabindex="-1">▾ hide</button>
   </div>
+  <div id="fcBodyProjection" class="fc-collapsible-body">
   <div class="fc-row">
     <div class="field" style="min-width:200px;">
       <label>
@@ -889,13 +870,21 @@ section.tab .container > h2 { margin: 6px 0 12px; }
       </div>
       <input id="fleetProjectionEndYear" type="number" min="2025" max="2100" step="1" value="2035">
     </div>
+    <div class="field">
+      <label>Categories</label>
+      <div id="fleetCategoryContainer" style="display: flex; flex-wrap: wrap; gap: 10px;">
+        <label class="chip"><input type="checkbox" id="fleetShowBEV"    checked> BEV</label>
+        <label class="chip"><input type="checkbox" id="fleetShowPHEV"   checked> PHEV</label>
+        <label class="chip"><input type="checkbox" id="fleetShowHEV"    checked> HEV</label>
+        <label class="chip"><input type="checkbox" id="fleetShowOTHERS" checked> OTHERS</label>
+      </div>
+    </div>
   </div>
-</div>
-</div><!-- /Card 1: Projection -->
+  </div><!-- /fcBodyProjection -->
+</div><!-- /Section 1: Projection -->
 
-<!-- Card 2: Inflow (collapsible, starts collapsed) -->
-<div class="card" style="margin: 8px 0 0;">
-<div class="fc-section" style="margin-bottom:0;">
+<!-- Section 2: Inflow (collapsible, starts collapsed) -->
+<div class="fc-section" style="margin: 8px 0 0;">
   <div class="fc-section-head" style="cursor:pointer; user-select:none;" onclick="fcToggle('fcBodyInflow','fcBtnInflow')">
     <span class="fc-section-title">Inflow of new vehicles</span>
     <span class="fc-section-hint">How many new cars are sold each year, and what mix?</span>
@@ -964,12 +953,10 @@ section.tab .container > h2 { margin: 6px 0 12px; }
     </div>
   </div>
   </div><!-- /fcBodyInflow -->
-</div><!-- /fc-section -->
-</div><!-- /Card 2: Inflow -->
+</div><!-- /Section 2: Inflow -->
 
-<!-- Card 3: Hazard / attrition (collapsible, starts collapsed) -->
-<div class="card" style="margin: 8px 0 0;">
-<div class="fc-section" style="margin-bottom:0;">
+<!-- Section 3: Hazard / attrition (collapsible, starts collapsed) -->
+<div class="fc-section" style="margin: 8px 0 0;">
   <div class="fc-section-head" style="cursor:pointer; user-select:none;" onclick="fcToggle('fcBodyHazard','fcBtnHazard')">
     <span class="fc-section-title">Hazard &amp; attrition</span>
     <span class="fc-section-hint">How many vehicles leave the fleet each year as they age</span>
@@ -1134,13 +1121,17 @@ section.tab .container > h2 { margin: 6px 0 12px; }
     </div>
   </div>
   </div><!-- /fcBodyHazard -->
-</div><!-- /fc-section -->
-</div><!-- /Card 3: Hazard -->
+</div><!-- /Section 3: Hazard -->
 
 <div class="card" style="margin-top:8px;">
   <div id="fleetPlot" style="height:520px;"></div>
   <button class="btn chart-dl" onclick="downloadPlotlyChart('fleetPlot','fleet_chart.png')">↓ Download PNG</button>
 </div>
+
+<p class="small" style="margin-top:12px;">
+  Observed fleet stock (on the road) by drivetrain. Projections use modeled inflow &amp; attrition (see controls above).
+  <br>When multiple countries are selected they are stacked by category. If a country lacks a PHEV/HEV split, both appear under HYBRID; if PETROL/DIESEL detail is missing they appear under OTHERS.
+</p>
 </div>
 
 <div id="fleetDebugBox" style="
