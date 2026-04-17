@@ -1463,11 +1463,27 @@ window.addEventListener('DOMContentLoaded', () => {
 });
   
 // -------- Plotly chart download helper --------
+// Returns "_YYYYMMDDHHMM" suffix for download filenames.
+function downloadTimestamp(){
+  const d = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  return `_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}`;
+}
+
+// Inserts timestamp before the last "." in a filename, e.g.
+// "fleet_chart.png" → "fleet_chart_202506211342.png"
+function stampedFilename(filename){
+  const dot = filename.lastIndexOf('.');
+  return dot === -1
+    ? filename + downloadTimestamp()
+    : filename.slice(0, dot) + downloadTimestamp() + filename.slice(dot);
+}
+
 function downloadPlotlyChart(plotId, filename){
   if (typeof Plotly === 'undefined') return;
   Plotly.toImage(plotId, {format:'png', width:1200, height:700, scale:2}).then(url => {
     const a = document.createElement('a');
-    a.href = url; a.download = filename;
+    a.href = url; a.download = stampedFilename(filename);
     document.body.appendChild(a); a.click(); a.remove();
   }).catch(err => console.warn('Chart download failed:', err));
 }
@@ -1594,11 +1610,11 @@ function tableToImage(tableEl, filename, title){
 // Wire up PNG export buttons
 document.getElementById('exportThresholdsPng')?.addEventListener('click', () => {
   const table = document.querySelector('#thresholdsMount table');
-  if (table) tableToImage(table, 'bev_thresholds.png', 'BEV Thresholds (years)');
+  if (table) tableToImage(table, stampedFilename('bev_thresholds.png'), 'BEV Thresholds (years)');
 });
 document.getElementById('exportDurPng')?.addEventListener('click', () => {
   const table = document.querySelector('#durationsMount table');
-  if (table) tableToImage(table, 'bev_durations.png', 'BEV Durations');
+  if (table) tableToImage(table, stampedFilename('bev_durations.png'), 'BEV Durations');
 });
 
 // -------- Lightbox ergonomics --------
