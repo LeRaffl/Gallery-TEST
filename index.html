@@ -842,35 +842,16 @@ section.tab .container > h2 { margin: 6px 0 12px; }
     </div>
   </div>
 
-  <!-- Zeile 3: Categories – volle Breite unten -->
-  <div class="field" style="flex: 1 1 100%; min-width: 100%;">
-    <label>Categories</label>
-<div id="fleetCategoryContainer" style="display: flex; flex-wrap: wrap; gap: 10px;">
-      <label class="chip"><input type="checkbox" id="fleetShowBEV"    checked> BEV</label>
-      <label class="chip"><input type="checkbox" id="fleetShowPHEV"   checked> PHEV</label>
-      <label class="chip"><input type="checkbox" id="fleetShowHEV"    checked> HEV</label>
-      <label class="chip"><input type="checkbox" id="fleetShowOTHERS" checked> OTHERS</label>
-    </div>
-  </div>
 </div>
 
-    <p class="small">
-      Observed fleet stock (on the road) by drivetrain.
-      <br>
-      <em>Projections based on modeled inflow & attrition will be added.</em>
-      <br>
-      <br>If you select multiple countries, they will simply be stacked by category, so if a country doesn't have a split for HYBRID into PHEV and HEV, 
-      <br>you will see 3 bars for HYBRID, PHEV, HEV, instead of two for PHEV and HEV, similar with OTHERS split into PETROL/DIESEL.
-      <br>If no split into PHEV and HEV is available, both are fused into the HYBRID category.
-      <br>If PHEV is available explicitly, it is named as such,. If PHEV is, but HEV is not, HEV are part of the respective ICE category.
-    </p>
-<!-- Card 1: Projection (always visible) -->
-<div class="card" id="fleetProjectionControls" style="margin: 14px 0 0;">
-<div class="fc-section" style="margin-bottom:0;">
-  <div class="fc-section-head">
+<!-- Section 1: Projection (collapsible, starts open) -->
+<div class="fc-section" id="fleetProjectionControls" style="margin: 14px 0 0;">
+  <div class="fc-section-head" style="cursor:pointer; user-select:none;" onclick="fcToggle('fcBodyProjection','fcBtnProjection')">
     <span class="fc-section-title">Projection</span>
     <span class="fc-section-hint">When does the projection run, and how far?</span>
+    <button class="fc-collapse-btn" id="fcBtnProjection" tabindex="-1">▾ hide</button>
   </div>
+  <div id="fcBodyProjection" class="fc-collapsible-body">
   <div class="fc-row">
     <div class="field" style="min-width:200px;">
       <label>
@@ -889,13 +870,21 @@ section.tab .container > h2 { margin: 6px 0 12px; }
       </div>
       <input id="fleetProjectionEndYear" type="number" min="2025" max="2100" step="1" value="2035">
     </div>
+    <div class="field">
+      <label>Categories</label>
+      <div id="fleetCategoryContainer" style="display: flex; flex-wrap: wrap; gap: 10px;">
+        <label class="chip"><input type="checkbox" id="fleetShowBEV"    checked> BEV</label>
+        <label class="chip"><input type="checkbox" id="fleetShowPHEV"   checked> PHEV</label>
+        <label class="chip"><input type="checkbox" id="fleetShowHEV"    checked> HEV</label>
+        <label class="chip"><input type="checkbox" id="fleetShowOTHERS" checked> OTHERS/UNCATEGORIZED</label>
+      </div>
+    </div>
   </div>
-</div>
-</div><!-- /Card 1: Projection -->
+  </div><!-- /fcBodyProjection -->
+</div><!-- /Section 1: Projection -->
 
-<!-- Card 2: Inflow (collapsible, starts collapsed) -->
-<div class="card" style="margin: 8px 0 0;">
-<div class="fc-section" style="margin-bottom:0;">
+<!-- Section 2: Inflow (collapsible, starts collapsed) -->
+<div class="fc-section" style="margin: 8px 0 0;">
   <div class="fc-section-head" style="cursor:pointer; user-select:none;" onclick="fcToggle('fcBodyInflow','fcBtnInflow')">
     <span class="fc-section-title">Inflow of new vehicles</span>
     <span class="fc-section-hint">How many new cars are sold each year, and what mix?</span>
@@ -922,7 +911,7 @@ section.tab .container > h2 { margin: 6px 0 12px; }
       <div style="display:flex; align-items:center; gap:6px;">
         <label for="fleetBevImportShare">BEV share of net imports (0 to 1)</label>
         <span class="info-tip"
-          data-tip="Share of net imports assigned to BEVs. Example: 0.4 means 40% of the value in Net imports / year are added to BEV and 60% to OTHERS. If net imports are negative, 40% are removed from BEV and 60% from OTHERS.">i</span>
+          data-tip="Share of net imports/exports assigned to BEVs. Positive imports: bevImportShare goes to BEV, the rest to OTHERS/UNCATEGORIZED. Negative imports (= exports): bevImportShare is removed from BEV, the remaining share is removed from all non-BEV categories proportionally to their current fleet mix.">i</span>
       </div>
       <input id="fleetBevImportShare" type="number" min="0" max="1" step="0.001" value="1">
     </div>
@@ -964,12 +953,10 @@ section.tab .container > h2 { margin: 6px 0 12px; }
     </div>
   </div>
   </div><!-- /fcBodyInflow -->
-</div><!-- /fc-section -->
-</div><!-- /Card 2: Inflow -->
+</div><!-- /Section 2: Inflow -->
 
-<!-- Card 3: Hazard / attrition (collapsible, starts collapsed) -->
-<div class="card" style="margin: 8px 0 0;">
-<div class="fc-section" style="margin-bottom:0;">
+<!-- Section 3: Hazard / attrition (collapsible, starts collapsed) -->
+<div class="fc-section" style="margin: 8px 0 0;">
   <div class="fc-section-head" style="cursor:pointer; user-select:none;" onclick="fcToggle('fcBodyHazard','fcBtnHazard')">
     <span class="fc-section-title">Hazard &amp; attrition</span>
     <span class="fc-section-hint">How many vehicles leave the fleet each year as they age</span>
@@ -1096,7 +1083,7 @@ section.tab .container > h2 { margin: 6px 0 12px; }
 
   <div class="field">
     <div style="display:flex; align-items:center; gap:6px;">
-      <label for="hazOTHERS">OTHERS</label>
+      <label for="hazOTHERS">OTHERS/UNCATEGORIZED</label>
       <span class="info-tip"
             data-tip="Annual attrition applied to the OTHERS fleet. Example: 0.02 means 2% of OTHERS leave the fleet each year.">
         i
@@ -1134,13 +1121,17 @@ section.tab .container > h2 { margin: 6px 0 12px; }
     </div>
   </div>
   </div><!-- /fcBodyHazard -->
-</div><!-- /fc-section -->
-</div><!-- /Card 3: Hazard -->
+</div><!-- /Section 3: Hazard -->
 
 <div class="card" style="margin-top:8px;">
   <div id="fleetPlot" style="height:520px;"></div>
   <button class="btn chart-dl" onclick="downloadPlotlyChart('fleetPlot','fleet_chart.png')">↓ Download PNG</button>
 </div>
+
+<p class="small" style="margin-top:12px;">
+  Observed fleet stock (on the road) by drivetrain. Projections use modeled inflow &amp; attrition (see controls above).
+  <br>When multiple countries are selected they are stacked by category. If a country lacks a PHEV/HEV split, both appear under HYBRID; if PETROL/DIESEL detail is missing they appear under OTHERS.
+</p>
 </div>
 
 <div id="fleetDebugBox" style="
@@ -1472,11 +1463,27 @@ window.addEventListener('DOMContentLoaded', () => {
 });
   
 // -------- Plotly chart download helper --------
+// Returns "_YYYYMMDDHHMM" suffix for download filenames.
+function downloadTimestamp(){
+  const d = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  return `_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}`;
+}
+
+// Inserts timestamp before the last "." in a filename, e.g.
+// "fleet_chart.png" → "fleet_chart_202506211342.png"
+function stampedFilename(filename){
+  const dot = filename.lastIndexOf('.');
+  return dot === -1
+    ? filename + downloadTimestamp()
+    : filename.slice(0, dot) + downloadTimestamp() + filename.slice(dot);
+}
+
 function downloadPlotlyChart(plotId, filename){
   if (typeof Plotly === 'undefined') return;
   Plotly.toImage(plotId, {format:'png', width:1200, height:700, scale:2}).then(url => {
     const a = document.createElement('a');
-    a.href = url; a.download = filename;
+    a.href = url; a.download = stampedFilename(filename);
     document.body.appendChild(a); a.click(); a.remove();
   }).catch(err => console.warn('Chart download failed:', err));
 }
@@ -1603,11 +1610,11 @@ function tableToImage(tableEl, filename, title){
 // Wire up PNG export buttons
 document.getElementById('exportThresholdsPng')?.addEventListener('click', () => {
   const table = document.querySelector('#thresholdsMount table');
-  if (table) tableToImage(table, 'bev_thresholds.png', 'BEV Thresholds (years)');
+  if (table) tableToImage(table, stampedFilename('bev_thresholds.png'), 'BEV Thresholds (years)');
 });
 document.getElementById('exportDurPng')?.addEventListener('click', () => {
   const table = document.querySelector('#durationsMount table');
-  if (table) tableToImage(table, 'bev_durations.png', 'BEV Durations');
+  if (table) tableToImage(table, stampedFilename('bev_durations.png'), 'BEV Durations');
 });
 
 // -------- Lightbox ergonomics --------
@@ -3252,21 +3259,21 @@ function projectCountryFleet(country, startYear, endYear, options){
       next.BEV += bevImports;
       next.OTHERS += otherImports;
     } else {
-      // Simple model for negative net imports (= net exports for this
-      // year): remove the exported vehicles proportionally from the
-      // current BEV and OTHERS stocks. This is deliberately kept
-      // coarse — we have no empirical data on which age cohorts get
-      // re-exported, so preserving the existing mix is the least
-      // biased assumption.
+      // Negative net imports (= net exports): mirrors the positive split.
+      // bevImportShare of the export volume is removed from BEV;
+      // the remainder is removed proportionally from all non-BEV categories
+      // (PHEV, HEV, HYBRID, DIESEL, PETROL, OTHERS) based on their current mix.
       const exportAbs = Math.abs(netImports);
-      const removableBase = Math.max(next.BEV + next.OTHERS, 0);
+      const bevRemoval = exportAbs * bevImportShare;
+      next.BEV = Math.max(0, next.BEV - bevRemoval);
 
-      if (removableBase > 0) {
-        const bevRemoval = exportAbs * (next.BEV / removableBase);
-        const otherRemoval = exportAbs * (next.OTHERS / removableBase);
-
-        next.BEV = Math.max(0, next.BEV - bevRemoval);
-        next.OTHERS = Math.max(0, next.OTHERS - otherRemoval);
+      const restRemoval = exportAbs * (1 - bevImportShare);
+      const nonBevCats = ['PHEV','HEV','HYBRID','DIESEL','PETROL','OTHERS'];
+      const nonBevTotal = nonBevCats.reduce((s, c) => s + Math.max(0, next[c]), 0);
+      if (nonBevTotal > 0 && restRemoval > 0) {
+        for (const cat of nonBevCats) {
+          next[cat] = Math.max(0, next[cat] - restRemoval * (Math.max(0, next[cat]) / nonBevTotal));
+        }
       }
     }
     next.projected = true;
@@ -3360,21 +3367,32 @@ function projectCountryFleetVintage(country, startYear, endYear, options){
       next.BEV += bevImports;
       next.OTHERS += otherImports;
     } else {
+      // Negative net imports: same split logic as positive, applied as removal.
+      // bevImportShare from BEV (vintage buckets scaled accordingly);
+      // remainder proportional across all non-BEV categories + their buckets.
       const exportAbs = Math.abs(netImports);
-      const removableBase = Math.max(next.BEV + next.OTHERS, 0);
-      if (removableBase > 0) {
-        const bevRemoval = exportAbs * (next.BEV / removableBase);
-        const otherRemoval = exportAbs * (next.OTHERS / removableBase);
-        if (next.BEV > 0) {
-          const factor = Math.max(0, (next.BEV - bevRemoval) / next.BEV);
-          for (let a = 0; a <= VINTAGE_AGE_CAP; a++) buckets.BEV[a] *= factor;
-        }
-        if (next.OTHERS > 0) {
-          const factor = Math.max(0, (next.OTHERS - otherRemoval) / next.OTHERS);
-          for (let a = 0; a <= VINTAGE_AGE_CAP; a++) buckets.OTHERS[a] *= factor;
-        }
+
+      const bevRemoval = exportAbs * bevImportShare;
+      if (next.BEV > 0) {
+        const factor = Math.max(0, (next.BEV - bevRemoval) / next.BEV);
+        for (let a = 0; a <= VINTAGE_AGE_CAP; a++) buckets.BEV[a] *= factor;
         next.BEV = Math.max(0, next.BEV - bevRemoval);
-        next.OTHERS = Math.max(0, next.OTHERS - otherRemoval);
+      }
+
+      const restRemoval = exportAbs * (1 - bevImportShare);
+      const nonBevCats = ['PHEV','HEV','HYBRID','DIESEL','PETROL','OTHERS'];
+      const nonBevTotal = nonBevCats.reduce((s, c) => s + Math.max(0, next[c]), 0);
+      if (nonBevTotal > 0 && restRemoval > 0) {
+        for (const cat of nonBevCats) {
+          if (next[cat] > 0) {
+            const removal = restRemoval * (Math.max(0, next[cat]) / nonBevTotal);
+            const factor = Math.max(0, (next[cat] - removal) / next[cat]);
+            if (buckets[cat]) {
+              for (let a = 0; a <= VINTAGE_AGE_CAP; a++) buckets[cat][a] *= factor;
+            }
+            next[cat] = Math.max(0, next[cat] - removal);
+          }
+        }
       }
     }
 
@@ -3557,7 +3575,7 @@ const container = document.getElementById('fleetCategoryContainer');
   if (hasDiesel) categories.push({ id: 'fleetShowDIESEL', label: 'DIESEL', checked: true });
   if (hasPetrol) categories.push({ id: 'fleetShowPETROL', label: 'PETROL', checked: true });
 
-  categories.push({ id: 'fleetShowOTHERS', label: 'OTHERS', checked: true });
+  categories.push({ id: 'fleetShowOTHERS', label: 'OTHERS/UNCATEGORIZED', checked: true });
 
   categories.forEach(cat => {
     const label = document.createElement('label');
@@ -3654,7 +3672,7 @@ function buildFleetPlot() {
     { key:'HYBRID', label:'HYBRID', show:showHYBRID },
     { key:'DIESEL', label:'DIESEL', show:showDIESEL },
     { key:'PETROL', label:'PETROL', show:showPETROL },
-    { key:'OTHERS', label:'OTHERS', show:showOTHERS }
+    { key:'OTHERS', label:'OTHERS/UNCATEGORIZED', show:showOTHERS }
   ];
 
   const traces = [];
