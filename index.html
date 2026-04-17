@@ -876,7 +876,7 @@ section.tab .container > h2 { margin: 6px 0 12px; }
         <label class="chip"><input type="checkbox" id="fleetShowBEV"    checked> BEV</label>
         <label class="chip"><input type="checkbox" id="fleetShowPHEV"   checked> PHEV</label>
         <label class="chip"><input type="checkbox" id="fleetShowHEV"    checked> HEV</label>
-        <label class="chip"><input type="checkbox" id="fleetShowOTHERS" checked> OTHERS</label>
+        <label class="chip"><input type="checkbox" id="fleetShowOTHERS" checked> OTHERS/UNCATEGORIZED</label>
       </div>
     </div>
   </div>
@@ -911,7 +911,7 @@ section.tab .container > h2 { margin: 6px 0 12px; }
       <div style="display:flex; align-items:center; gap:6px;">
         <label for="fleetBevImportShare">BEV share of net imports (0 to 1)</label>
         <span class="info-tip"
-          data-tip="Share of net imports assigned to BEVs. Example: 0.4 means 40% of the value in Net imports / year are added to BEV and 60% to OTHERS. If net imports are negative, 40% are removed from BEV and 60% from OTHERS.">i</span>
+          data-tip="Share of net imports/exports assigned to BEVs. Positive imports: bevImportShare goes to BEV, the rest to OTHERS/UNCATEGORIZED. Negative imports (= exports): bevImportShare is removed from BEV, the remaining share is removed from all non-BEV categories proportionally to their current fleet mix.">i</span>
       </div>
       <input id="fleetBevImportShare" type="number" min="0" max="1" step="0.001" value="1">
     </div>
@@ -1083,7 +1083,7 @@ section.tab .container > h2 { margin: 6px 0 12px; }
 
   <div class="field">
     <div style="display:flex; align-items:center; gap:6px;">
-      <label for="hazOTHERS">OTHERS</label>
+      <label for="hazOTHERS">OTHERS/UNCATEGORIZED</label>
       <span class="info-tip"
             data-tip="Annual attrition applied to the OTHERS fleet. Example: 0.02 means 2% of OTHERS leave the fleet each year.">
         i
@@ -3243,21 +3243,21 @@ function projectCountryFleet(country, startYear, endYear, options){
       next.BEV += bevImports;
       next.OTHERS += otherImports;
     } else {
-      // Simple model for negative net imports (= net exports for this
-      // year): remove the exported vehicles proportionally from the
-      // current BEV and OTHERS stocks. This is deliberately kept
-      // coarse — we have no empirical data on which age cohorts get
-      // re-exported, so preserving the existing mix is the least
-      // biased assumption.
+      // Negative net imports (= net exports): mirrors the positive split.
+      // bevImportShare of the export volume is removed from BEV;
+      // the remainder is removed proportionally from all non-BEV categories
+      // (PHEV, HEV, HYBRID, DIESEL, PETROL, OTHERS) based on their current mix.
       const exportAbs = Math.abs(netImports);
-      const removableBase = Math.max(next.BEV + next.OTHERS, 0);
+      const bevRemoval = exportAbs * bevImportShare;
+      next.BEV = Math.max(0, next.BEV - bevRemoval);
 
-      if (removableBase > 0) {
-        const bevRemoval = exportAbs * (next.BEV / removableBase);
-        const otherRemoval = exportAbs * (next.OTHERS / removableBase);
-
-        next.BEV = Math.max(0, next.BEV - bevRemoval);
-        next.OTHERS = Math.max(0, next.OTHERS - otherRemoval);
+      const restRemoval = exportAbs * (1 - bevImportShare);
+      const nonBevCats = ['PHEV','HEV','HYBRID','DIESEL','PETROL','OTHERS'];
+      const nonBevTotal = nonBevCats.reduce((s, c) => s + Math.max(0, next[c]), 0);
+      if (nonBevTotal > 0 && restRemoval > 0) {
+        for (const cat of nonBevCats) {
+          next[cat] = Math.max(0, next[cat] - restRemoval * (Math.max(0, next[cat]) / nonBevTotal));
+        }
       }
     }
     next.projected = true;
@@ -3351,21 +3351,32 @@ function projectCountryFleetVintage(country, startYear, endYear, options){
       next.BEV += bevImports;
       next.OTHERS += otherImports;
     } else {
+      // Negative net imports: same split logic as positive, applied as removal.
+      // bevImportShare from BEV (vintage buckets scaled accordingly);
+      // remainder proportional across all non-BEV categories + their buckets.
       const exportAbs = Math.abs(netImports);
-      const removableBase = Math.max(next.BEV + next.OTHERS, 0);
-      if (removableBase > 0) {
-        const bevRemoval = exportAbs * (next.BEV / removableBase);
-        const otherRemoval = exportAbs * (next.OTHERS / removableBase);
-        if (next.BEV > 0) {
-          const factor = Math.max(0, (next.BEV - bevRemoval) / next.BEV);
-          for (let a = 0; a <= VINTAGE_AGE_CAP; a++) buckets.BEV[a] *= factor;
-        }
-        if (next.OTHERS > 0) {
-          const factor = Math.max(0, (next.OTHERS - otherRemoval) / next.OTHERS);
-          for (let a = 0; a <= VINTAGE_AGE_CAP; a++) buckets.OTHERS[a] *= factor;
-        }
+
+      const bevRemoval = exportAbs * bevImportShare;
+      if (next.BEV > 0) {
+        const factor = Math.max(0, (next.BEV - bevRemoval) / next.BEV);
+        for (let a = 0; a <= VINTAGE_AGE_CAP; a++) buckets.BEV[a] *= factor;
         next.BEV = Math.max(0, next.BEV - bevRemoval);
-        next.OTHERS = Math.max(0, next.OTHERS - otherRemoval);
+      }
+
+      const restRemoval = exportAbs * (1 - bevImportShare);
+      const nonBevCats = ['PHEV','HEV','HYBRID','DIESEL','PETROL','OTHERS'];
+      const nonBevTotal = nonBevCats.reduce((s, c) => s + Math.max(0, next[c]), 0);
+      if (nonBevTotal > 0 && restRemoval > 0) {
+        for (const cat of nonBevCats) {
+          if (next[cat] > 0) {
+            const removal = restRemoval * (Math.max(0, next[cat]) / nonBevTotal);
+            const factor = Math.max(0, (next[cat] - removal) / next[cat]);
+            if (buckets[cat]) {
+              for (let a = 0; a <= VINTAGE_AGE_CAP; a++) buckets[cat][a] *= factor;
+            }
+            next[cat] = Math.max(0, next[cat] - removal);
+          }
+        }
       }
     }
 
@@ -3548,7 +3559,7 @@ const container = document.getElementById('fleetCategoryContainer');
   if (hasDiesel) categories.push({ id: 'fleetShowDIESEL', label: 'DIESEL', checked: true });
   if (hasPetrol) categories.push({ id: 'fleetShowPETROL', label: 'PETROL', checked: true });
 
-  categories.push({ id: 'fleetShowOTHERS', label: 'OTHERS', checked: true });
+  categories.push({ id: 'fleetShowOTHERS', label: 'OTHERS/UNCATEGORIZED', checked: true });
 
   categories.forEach(cat => {
     const label = document.createElement('label');
@@ -3645,7 +3656,7 @@ function buildFleetPlot() {
     { key:'HYBRID', label:'HYBRID', show:showHYBRID },
     { key:'DIESEL', label:'DIESEL', show:showDIESEL },
     { key:'PETROL', label:'PETROL', show:showPETROL },
-    { key:'OTHERS', label:'OTHERS', show:showOTHERS }
+    { key:'OTHERS', label:'OTHERS/UNCATEGORIZED', show:showOTHERS }
   ];
 
   const traces = [];
