@@ -1357,10 +1357,10 @@ period,interval,year,category,registrations,source
 2026M02,monthly,2025.083333,PETROL,1067,ACEA / lustat.statec.lu
 2026M02,monthly,2025.083333,PHEV,272,ACEA / lustat.statec.lu
 2026M02,monthly,2025.083333,TOTAL,4400,ACEA / lustat.statec.lu
-2026M03,monthly,2025.166667,BEV,1384,ACEA / lustat.statec.lu
-2026M03,monthly,2025.166667,DIESEL,409,ACEA / lustat.statec.lu
-2026M03,monthly,2025.166667,HEV,1578,ACEA / lustat.statec.lu
-2026M03,monthly,2025.166667,OTHER,0,ACEA / lustat.statec.lu
-2026M03,monthly,2025.166667,PETROL,1194,ACEA / lustat.statec.lu
-2026M03,monthly,2025.166667,PHEV,234,ACEA / lustat.statec.lu
-2026M03,monthly,2025.166667,TOTAL,4799,ACEA / lustat.statec.lu
+2026M03,monthly,2025.166667,BEV,1384,ACEA
+2026M03,monthly,2025.166667,DIESEL,409,ACEA
+2026M03,monthly,2025.166667,HEV,1578,ACEA
+2026M03,monthly,2025.166667,OTHER,0,ACEA
+2026M03,monthly,2025.166667,PETROL,1194,ACEA
+2026M03,monthly,2025.166667,PHEV,234,ACEA
+2026M03,monthly,2025.166667,TOTAL,4799,ACEA

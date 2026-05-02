@@ -1357,10 +1357,10 @@ period,interval,year,category,registrations,source
 2026M02,monthly,2025.083333,PETROL,3812,pxweb.bfs.admin.ch / ACEA
 2026M02,monthly,2025.083333,PHEV,1829,pxweb.bfs.admin.ch / ACEA
 2026M02,monthly,2025.083333,TOTAL,15697,pxweb.bfs.admin.ch / ACEA
-2026M03,monthly,2025.166667,BEV,5388,pxweb.bfs.admin.ch / ACEA
-2026M03,monthly,2025.166667,DIESEL,1198,pxweb.bfs.admin.ch / ACEA
-2026M03,monthly,2025.166667,HEV,8884,pxweb.bfs.admin.ch / ACEA
-2026M03,monthly,2025.166667,OTHER,0,pxweb.bfs.admin.ch / ACEA
-2026M03,monthly,2025.166667,PETROL,4894,pxweb.bfs.admin.ch / ACEA
-2026M03,monthly,2025.166667,PHEV,2894,pxweb.bfs.admin.ch / ACEA
-2026M03,monthly,2025.166667,TOTAL,23258,pxweb.bfs.admin.ch / ACEA
+2026M03,monthly,2025.166667,BEV,5388,ACEA
+2026M03,monthly,2025.166667,DIESEL,1198,ACEA
+2026M03,monthly,2025.166667,HEV,8884,ACEA
+2026M03,monthly,2025.166667,OTHER,0,ACEA
+2026M03,monthly,2025.166667,PETROL,4894,ACEA
+2026M03,monthly,2025.166667,PHEV,2894,ACEA
+2026M03,monthly,2025.166667,TOTAL,23258,ACEA
