@@ -19,6 +19,10 @@ PARAMS_COLUMNS  <- c("country","variant","v1","v2","t0",
 
 WEIGHTS_COLUMNS <- c("country","variant","weight","data_per","model_date")
 
+country_key <- function(x) {
+  tolower(gsub("[[:space:]_]+", "", as.character(x)))
+}
+
 # Format a number for params.csv. Keeps full mantissa precision and lets R
 # pick scientific notation when it's the natural representation. Returns ""
 # for NA so the resulting CSV cell is empty.
@@ -80,7 +84,7 @@ read_params_csv <- function(path) {
 # Upsert one row into the params data frame, matching on (country, variant)
 # case-insensitively for country.
 upsert_params_row <- function(params, row) {
-  idx <- which(tolower(params$country) == tolower(row$country) &
+  idx <- which(country_key(params$country) == country_key(row$country) &
                  params$variant == row$variant)
   if (length(idx) == 1) {
     params[idx, ] <- row
@@ -138,7 +142,8 @@ upsert_weights_row <- function(weights, country, variant, weight, data_per) {
     model_date = format(Sys.Date(), "%Y-%m-%d"),
     stringsAsFactors = FALSE
   )
-  idx <- which(weights$country == country & weights$variant == variant)
+  idx <- which(country_key(weights$country) == country_key(country) &
+                 weights$variant == variant)
   if (length(idx) == 1) {
     weights[idx, ] <- new
   } else {
