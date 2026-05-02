@@ -71,7 +71,7 @@ main_run_all <- function() {
     cat("Failed sheets:\n")
     for (i in seq_along(failed))
       cat(sprintf("  - %s : %s\n", failed[i], errors[i]))
-    quit(status = 1)
+    quit(status = if (skip_fail) 0 else 1)
   }
 }
 

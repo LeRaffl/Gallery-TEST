@@ -52,14 +52,32 @@ build_ttm_plot <- function(data, flags, country_label, caption) {
   if (use_erev)   active_ttm <- c(active_ttm, "EREV TTM")
   present_ttm <- intersect(active_ttm, names(data_monthly))
 
+  use_residual_ice <- FALSE
+
   # Keep only rows where all active TTM categories sum to ≥ 90% of TOTAL.
   # This replaces the old year-offset heuristic: it naturally skips the
   # 11-month warm-up period for rolling TTM AND skips early months where
   # a later-arriving category (e.g. PETROL for Portugal pre-2018) makes
   # the stack incomplete.
   if (length(present_ttm) > 0) {
-    ttm_sums <- rowSums(data_monthly[, present_ttm, drop = FALSE], na.rm = TRUE)
-    data_monthly <- data_monthly[ttm_sums > 0.90, , drop = FALSE]
+    ttm_values <- data_monthly[, present_ttm, drop = FALSE]
+    ttm_sums <- rowSums(ttm_values, na.rm = TRUE)
+    has_ttm_data <- rowSums(!is.na(ttm_values)) > 0
+
+    # Some non-ACEA markets (currently Brazil and Georgia) have a TOTAL
+    # series plus partial fuel splits, but no explicit ICE column. If the
+    # active stack never reaches 90%, treat the missing share as residual
+    # combustion rather than dropping the entire TTM plot.
+    use_residual_ice <- !use_ice &&
+      any(has_ttm_data) &&
+      !any(ttm_sums[has_ttm_data] > 0.90, na.rm = TRUE)
+
+    if (use_residual_ice) {
+      data_monthly$`Other ICE TTM` <- pmax(0, 1 - ttm_sums)
+      data_monthly <- data_monthly[has_ttm_data, , drop = FALSE]
+    } else {
+      data_monthly <- data_monthly[ttm_sums > 0.90, , drop = FALSE]
+    }
   }
   if (nrow(data_monthly) == 0)
     stop("No rows with complete TTM data (sum > 90%) for ", country_label)
@@ -86,6 +104,7 @@ build_ttm_plot <- function(data, flags, country_label, caption) {
   if (use_ice)    layers$ICE    <- data_monthly$`ICE TTM`
   if (use_petrol) layers$Petrol <- data_monthly$`Petrol TTM`
   if (use_diesel) layers$Diesel <- data_monthly$`Diesel TTM`
+  if (use_residual_ice) layers$`Other ICE` <- data_monthly$`Other ICE TTM`
 
   if (use_hybrid) {
     layers$Hybrid <- data_monthly$`Hybrid TTM`
