@@ -131,6 +131,8 @@ dialog#lightbox::backdrop{background:rgba(0,0,0,.6)}
 /* Data submission */
 .data-submit-form{display:flex;flex-direction:column;gap:14px}
 .data-submit-grid{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:12px}
+.data-submit-details[hidden]{display:none}
+.data-submit-add-row{display:grid;grid-template-columns:minmax(180px,360px) auto;gap:10px;align-items:end;margin:0 0 12px}
 .data-submit-cats{display:grid;grid-template-columns:repeat(5,minmax(120px,1fr));gap:10px}
 .data-submit-cats .field{background:#0b1324;border:1px solid #1f2a44;border-radius:10px;padding:10px}
 .data-submit-form textarea{width:100%;min-height:88px;padding:10px 12px;border-radius:10px;border:1px solid #273145;background:#0f1525;color:#e9eef2;resize:vertical}
@@ -139,7 +141,7 @@ dialog#lightbox::backdrop{background:rgba(0,0,0,.6)}
 .data-submit-warnings p{margin:0;padding:8px 10px;border-radius:8px;background:#3a2e05;color:#ffe9a3;border:1px solid #6b5200;font-size:12px}
 .data-submit-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 @media (max-width:900px){.data-submit-grid{grid-template-columns:1fr 1fr}.data-submit-cats{grid-template-columns:1fr 1fr}}
-@media (max-width:560px){.data-submit-grid,.data-submit-cats{grid-template-columns:1fr}}
+@media (max-width:560px){.data-submit-grid,.data-submit-cats,.data-submit-add-row{grid-template-columns:1fr}}
 
   
 .field{display:flex;flex-direction:column;gap:6px}
@@ -817,11 +819,35 @@ h2 .fb-ctx-btn{width:30px;height:30px;font-size:16px;opacity:.6}
         </div>
       </div>
 
+      <div class="data-submit-grid data-submit-details" id="dsMarketDetails" hidden>
+        <div class="field">
+          <label for="dsNewCountry">New country / market</label>
+          <input id="dsNewCountry" type="text" placeholder="e.g. Italy, California, EU">
+        </div>
+        <div class="field">
+          <label for="dsNewVariant">Variant / scope</label>
+          <input id="dsNewVariant" type="text" list="dsVariantList" placeholder="Whole, HDV, Vans, Private...">
+          <datalist id="dsVariantList"></datalist>
+        </div>
+        <div class="field">
+          <label for="dsNewSlug">Proposed CSV slug</label>
+          <input id="dsNewSlug" type="text" placeholder="italy_vans">
+        </div>
+      </div>
+
       <div>
         <label class="small">Registrations by category</label>
         <p class="small" style="margin:8px 0 12px;color:var(--muted);max-width:72ch">
-          Default view shows the full category superset. After you choose a market, the form narrows to the categories already used by that market. Use <code>ICE</code> only when the source does not split <code>PETROL</code> and <code>DIESEL</code>.
+          Default view shows the full category superset. After you choose a market, the form narrows to the categories already used by that market. Use <code>ICE</code> only when the source does not split <code>PETROL</code> and <code>DIESEL</code>. Add special categories here when a source reports them separately.
         </p>
+        <div class="data-submit-add-row">
+          <div class="field">
+            <label for="dsExtraCategory">Additional category</label>
+            <input id="dsExtraCategory" type="text" list="dsKnownCategoryList" placeholder="EREV, HYBRIDS, FLEXFUEL...">
+            <datalist id="dsKnownCategoryList"></datalist>
+          </div>
+          <button type="button" class="btn" id="dsAddCategory">Add category</button>
+        </div>
         <div id="dsCategoryGrid" class="data-submit-cats"></div>
       </div>
 
@@ -5673,7 +5699,10 @@ function fbWireEvents(){
 // =========================================================================
 const DS_CATEGORY_ORDER = ['BEV','PHEV','EREV','HEV','HYBRIDS','PETROL','DIESEL','ICE','OTHER','TOTAL'];
 const DS_DEFAULT_CATEGORIES = ['BEV','PHEV','HEV','PETROL','DIESEL','ICE','OTHER','TOTAL'];
-const DS_STATE = { markets: [], categories: [] };
+const DS_KNOWN_CATEGORIES = ['BEV','PHEV','EREV','HEV','HYBRIDS','PETROL','DIESEL','ICE','OTHER','TOTAL','FLEXFUEL','CNG','LPG','FCEV','MHEV'];
+const DS_DEFAULT_VARIANTS = ['Whole','HDV','Vans','Private','Industry','Custom','Used Imports'];
+const DS_NEW_MARKET_VALUE = '__new_market__';
+const DS_STATE = { markets: [], categories: [], customCategories: [] };
 
 function dsSetStatus(msg){ const el = document.getElementById('dsStatus'); if (el) el.textContent = msg || ''; }
 function dsFormatModelYear(n){
@@ -5691,10 +5720,81 @@ function dsPeriodParts(monthValue){
     year: dsFormatModelYear((year - 1) + ((month - 1) / 12))
   };
 }
+function dsSlugify(value){
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+function dsNormalizeVariant(value){
+  const v = String(value || '').trim();
+  return v || 'Whole';
+}
+function dsDisplayMarketName(country, variant){
+  const c = String(country || '').trim();
+  const v = dsNormalizeVariant(variant);
+  return !c || /^whole$/i.test(v) ? c : `${c} (${v})`;
+}
+function dsNewMarketFromInputs(){
+  const country = (document.getElementById('dsNewCountry')?.value || '').trim();
+  const variant = dsNormalizeVariant(document.getElementById('dsNewVariant')?.value);
+  const slugInput = (document.getElementById('dsNewSlug')?.value || '').trim();
+  const slug = dsSlugify(slugInput || dsDisplayMarketName(country, variant));
+  return {
+    slug,
+    sheetName: dsDisplayMarketName(country, variant),
+    country,
+    variant,
+    isNew: true
+  };
+}
+function dsCsvCell(value){
+  const s = String(value ?? '');
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+}
+function dsNormalizeCategory(value){
+  return String(value || '')
+    .trim()
+    .replace(/\s+/g, '_')
+    .replace(/[^A-Za-z0-9_+-]/g, '')
+    .toUpperCase();
+}
+function dsCategoryInputId(cat){
+  return `dsCat_${dsSlugify(cat).replace(/_/g, '-') || 'category'}`;
+}
+function dsCollectCategoryValues(){
+  const values = {};
+  document.querySelectorAll('[data-ds-category]').forEach(input => {
+    values[input.dataset.dsCategory] = input.value;
+  });
+  return values;
+}
+function dsPopulateDatalists(){
+  const cats = document.getElementById('dsKnownCategoryList');
+  if (cats) cats.innerHTML = DS_KNOWN_CATEGORIES.map(c => `<option value="${fbEscape(c)}"></option>`).join('');
+  const variants = new Set(DS_DEFAULT_VARIANTS);
+  DS_STATE.markets.forEach(m => { if (m.variant) variants.add(m.variant); });
+  const list = document.getElementById('dsVariantList');
+  if (list) list.innerHTML = [...variants].sort((a,b) => a.localeCompare(b)).map(v => `<option value="${fbEscape(v)}"></option>`).join('');
+}
+function dsSyncNewSlug(){
+  const slug = document.getElementById('dsNewSlug');
+  if (!slug) return;
+  const next = dsSlugify(dsDisplayMarketName(
+    document.getElementById('dsNewCountry')?.value,
+    document.getElementById('dsNewVariant')?.value
+  ));
+  if (!slug.value || slug.dataset.autoValue === slug.value) slug.value = next;
+  slug.dataset.autoValue = next;
+}
 function dsSelectedMarket(){
   const sel = document.getElementById('dsMarket');
   const opt = sel?.selectedOptions?.[0];
   if (!opt || !opt.value) return null;
+  if (opt.value === DS_NEW_MARKET_VALUE) return dsNewMarketFromInputs();
   return {
     slug: opt.value,
     sheetName: opt.dataset.sheetName || opt.textContent,
@@ -5703,22 +5803,28 @@ function dsSelectedMarket(){
   };
 }
 function dsOrderedCategories(cats){
-  const set = new Set((cats || []).map(c => String(c || '').trim().toUpperCase()).filter(Boolean));
-  if (!set.size) DS_DEFAULT_CATEGORIES.forEach(c => set.add(c));
-  const ordered = DS_CATEGORY_ORDER.filter(c => set.has(c));
-  [...set].sort().forEach(c => { if (!ordered.includes(c)) ordered.push(c); });
+  const normalized = (cats || []).map(c => String(c || '').trim().toUpperCase()).filter(Boolean);
+  const set = new Set(normalized);
+  if (!normalized.length) DS_DEFAULT_CATEGORIES.forEach(c => set.add(c));
+  DS_STATE.customCategories.forEach(c => set.add(c));
+  const ordered = DS_CATEGORY_ORDER.filter(c => c !== 'TOTAL' && set.has(c));
+  [...set].sort().forEach(c => { if (c !== 'TOTAL' && !ordered.includes(c)) ordered.push(c); });
+  if (set.has('TOTAL')) ordered.push('TOTAL');
   return ordered;
 }
-function dsRenderCategoryInputs(cats){
+function dsRenderCategoryInputs(cats, keepValues = dsCollectCategoryValues()){
   DS_STATE.categories = dsOrderedCategories(cats);
   const grid = document.getElementById('dsCategoryGrid');
   if (!grid) return;
-  grid.innerHTML = DS_STATE.categories.map(cat => `
+  grid.innerHTML = DS_STATE.categories.map(cat => {
+    const id = dsCategoryInputId(cat);
+    return `
     <div class="field">
-      <label for="dsCat_${cat}">${cat}</label>
-      <input id="dsCat_${cat}" data-ds-category="${cat}" type="number" min="0" step="any" inputmode="decimal" placeholder="0">
+      <label for="${fbEscape(id)}">${fbEscape(cat)}</label>
+      <input id="${fbEscape(id)}" data-ds-category="${fbEscape(cat)}" type="number" min="0" step="any" inputmode="decimal" placeholder="0" value="${fbEscape(keepValues[cat] || '')}">
     </div>
-  `).join('');
+  `;
+  }).join('');
   grid.querySelectorAll('input').forEach(input => input.addEventListener('input', dsUpdatePreview));
   dsUpdatePreview();
 }
@@ -5741,16 +5847,21 @@ async function dsLoadMarkets(){
     if (!text) throw new Error('could not load market index');
     const rows = parseCSV(text);
     DS_STATE.markets = rows.filter(r => r.slug && r.sheet_name);
-    sel.innerHTML = '<option value="">Choose market...</option>' + DS_STATE.markets.map(r => `
+    sel.innerHTML = `<option value="">Choose existing market...</option>
+      <option value="${DS_NEW_MARKET_VALUE}">+ New market / variant...</option>` + DS_STATE.markets.map(r => `
       <option value="${fbEscape(r.slug)}" data-sheet-name="${fbEscape(r.sheet_name)}" data-country="${fbEscape(r.country)}" data-variant="${fbEscape(r.variant)}">${fbEscape(r.sheet_name)}</option>
     `).join('');
+    dsPopulateDatalists();
     if (!DS_STATE.markets.length) {
-      sel.innerHTML = '<option value="">Market index is empty</option>';
+      sel.innerHTML = `<option value="">Market index is empty</option>
+        <option value="${DS_NEW_MARKET_VALUE}">+ New market / variant...</option>`;
       dsSetStatus('No markets found in _index.csv.');
     }
   } catch (err) {
     console.warn('[data-submission] could not load market index:', err);
-    sel.innerHTML = '<option value="">Market index unavailable</option>';
+    sel.innerHTML = `<option value="">Market index unavailable</option>
+      <option value="${DS_NEW_MARKET_VALUE}">+ New market / variant...</option>`;
+    dsPopulateDatalists();
     dsSetStatus('Could not load market list.');
   }
 }
@@ -5786,13 +5897,51 @@ async function dsLoadMarketCategories(){
     dsSetStatus('Using default categories.');
   }
 }
+function dsSetNewMarketFieldsVisible(visible){
+  const details = document.getElementById('dsMarketDetails');
+  if (details) details.hidden = !visible;
+}
+function dsHandleMarketChange(){
+  const isNew = document.getElementById('dsMarket')?.value === DS_NEW_MARKET_VALUE;
+  dsSetNewMarketFieldsVisible(isNew);
+  if (isNew) {
+    dsSetStatus('');
+    dsSyncNewSlug();
+    dsRenderCategoryInputs([]);
+  } else {
+    dsLoadMarketCategories();
+  }
+  dsUpdatePreview();
+}
+function dsAddCustomCategory(){
+  const input = document.getElementById('dsExtraCategory');
+  const cat = dsNormalizeCategory(input?.value);
+  if (!cat) {
+    dsSetStatus('Enter a category name first.');
+    return;
+  }
+  const known = new Set(DS_STATE.categories.concat(DS_STATE.customCategories));
+  if (known.has(cat)) {
+    dsSetStatus(`${cat} is already shown.`);
+    if (input) input.value = '';
+    return;
+  }
+  DS_STATE.customCategories.push(cat);
+  if (!DS_KNOWN_CATEGORIES.includes(cat)) DS_KNOWN_CATEGORIES.push(cat);
+  dsPopulateDatalists();
+  dsRenderCategoryInputs(DS_STATE.categories);
+  if (input) input.value = '';
+  dsSetStatus(`${cat} added.`);
+}
 function dsBuildPayload(){
   const market = dsSelectedMarket();
   const period = dsPeriodParts(document.getElementById('dsPeriod')?.value);
   const source = (document.getElementById('dsSource')?.value || '').trim();
   const notes = (document.getElementById('dsNotes')?.value || '').trim();
   const warnings = [];
-  if (!market) warnings.push('Choose a market.');
+  if (!market) warnings.push('Choose an existing market or use new market / variant.');
+  if (market?.isNew && !market.country) warnings.push('Enter the new country / market name.');
+  if (market?.isNew && !market.slug) warnings.push('Enter a proposed CSV slug.');
   if (!period) warnings.push('Choose a valid month.');
   if (!source) warnings.push('Source is required.');
 
@@ -5816,6 +5965,9 @@ function dsBuildPayload(){
     });
   });
   if (!rows.length) warnings.push('Enter at least one category value.');
+  rows
+    .filter(r => !DS_CATEGORY_ORDER.includes(r.category))
+    .forEach(r => warnings.push(`${r.category}: custom category will land in the CSV; add R/schema handling if it should get its own model or TTM layer.`));
 
   const total = rows.find(r => r.category === 'TOTAL');
   if (!total) warnings.push('TOTAL is missing.');
@@ -5834,7 +5986,7 @@ function dsBuildPayload(){
 
   const csv = rows.map(r =>
     [r.period, r.interval, r.year, r.category, r.registrations, r.source]
-      .map(v => String(v).includes(',') ? `"${String(v).replace(/"/g,'""')}"` : String(v))
+      .map(dsCsvCell)
       .join(',')
   ).join('\n');
 
@@ -5866,20 +6018,33 @@ async function dsCopyRows(){
 }
 function dsSubmitForReview(){
   const built = dsUpdatePreview();
-  if (!built.csv || !built.market || !built.period) {
-    dsSetStatus('Complete market, month and at least one value first.');
+  if (!built.csv || !built.market || !built.period || !built.market.slug || !built.market.sheetName || !built.source) {
+    dsSetStatus('Complete market, month, source and at least one value first.');
     return;
   }
+  const indexRow = built.market.isNew
+    ? [built.market.slug, built.market.sheetName, built.market.country, built.market.variant, built.rows.length, built.source].map(dsCsvCell).join(',')
+    : '';
   const title = `Data submission: ${built.market.sheetName} ${built.period.period}`;
   const body =
 `Structured data submission for review.
 
+Market status: ${built.market.isNew ? 'New market / variant proposal' : 'Existing market'}
 Market: ${built.market.sheetName}
 Slug: ${built.market.slug}
+Country: ${built.market.country || '(missing)'}
+Variant: ${built.market.variant || '(missing)'}
 Period: ${built.period.period}
 Interval: ${built.period.interval}
 Model year: ${built.period.year}
 Source: ${built.source || '(missing)'}
+${built.market.isNew ? `
+Proposed _index.csv row:
+\`\`\`csv
+slug,sheet_name,country,variant,rows,source
+${indexRow}
+\`\`\`
+` : ''}
 
 CSV rows:
 \`\`\`csv
@@ -5915,10 +6080,22 @@ function dataSubmissionInit(){
     period.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2,'0')}`;
   }
   dsSetStatus('');
+  dsPopulateDatalists();
   dsRenderCategoryInputs([]);
   dsLoadMarkets();
-  document.getElementById('dsMarket')?.addEventListener('change', dsLoadMarketCategories);
-  ['dsPeriod','dsSource','dsNotes'].forEach(id => document.getElementById(id)?.addEventListener('input', dsUpdatePreview));
+  document.getElementById('dsMarket')?.addEventListener('change', dsHandleMarketChange);
+  ['dsPeriod','dsSource','dsNotes','dsNewSlug'].forEach(id => document.getElementById(id)?.addEventListener('input', dsUpdatePreview));
+  ['dsNewCountry','dsNewVariant'].forEach(id => document.getElementById(id)?.addEventListener('input', () => {
+    dsSyncNewSlug();
+    dsUpdatePreview();
+  }));
+  document.getElementById('dsAddCategory')?.addEventListener('click', dsAddCustomCategory);
+  document.getElementById('dsExtraCategory')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      dsAddCustomCategory();
+    }
+  });
   document.getElementById('dsCopyRows')?.addEventListener('click', dsCopyRows);
   document.getElementById('dsSubmitReview')?.addEventListener('click', dsSubmitForReview);
   form.addEventListener('submit', e => e.preventDefault());

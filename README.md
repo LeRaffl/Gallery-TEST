@@ -96,9 +96,15 @@ Common categories:
 ### 1. Public or mobile data submission
 
 - Open the site and go to `Submit Data`.
-- Pick market, period and source.
+- Pick an existing market, or choose `New market / variant` for new countries,
+  vans, HDV, private/industry slices or other source scopes.
+- Enter period and source.
 - Enter absolute registration counts.
+- Use `Additional category` for source-specific columns such as `FLEXFUEL`.
 - The form generates canonical CSV rows and opens a review submission.
+- New market submissions include a proposed `_index.csv` row plus the data rows.
+- Custom categories land in the CSV; add R/schema handling if they need their
+  own model, TTM layer or post wording.
 - The submission is public feedback/GitHub-Issue content, so do not put private data in it.
 - Current status: the mask creates structured review input; accepting it is still a maintainer step.
 
