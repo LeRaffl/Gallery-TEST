@@ -522,7 +522,7 @@ th.sortable.desc::after{content:" ↓"}
         </div>
       </div>
       <p class="small" style="max-width:740px">
-        Choose a custom threshold, then sort the table. Use the variant filter to include multiple categories. Default selects “Whole”.
+        Choose a custom threshold, then sort the table. Use the variant filter to include multiple categories. Default selects “New Cars”.
         Exports reflect your current filter and custom setting.<br>
         <span style="opacity:0.85">
           Color coding:
@@ -624,7 +624,7 @@ th.sortable.desc::after{content:" ↓"}
         <div class="field">
           <label>Weights variant</label>
           <select id="builderWeightVariant" multiple size="4">
-            <option value="whole" selected>Whole</option>
+            <option value="whole" selected>New Cars</option>
             <option value="4-wheelers" selected>4-Wheelers</option>
             <option value="hdv">HDV</option>
             <option value="vans">Vans</option>
@@ -640,7 +640,7 @@ th.sortable.desc::after{content:" ↓"}
           dominate the result while small markets contribute proportionally. <br>
           The x-axis uses index time internally (see t0 parameter).
           Minor rounding artefacts are expected due to time conversion and general limitation while rounding, since these calculations run client side on your device. <br>
-          The builder defaults to passenger cars (= Whole) and 4-Wheelers (= Whole, but for India) in case there are no parameters for a variant like HDV or Vans. <br>
+          The builder defaults to passenger cars (= New Cars) and 4-Wheelers (= New Cars, but for India) in case there are no parameters for a variant like HDV or Vans. <br>
           If the variant exists (for example in Thresholds or Durations Tab), then the Builder will create the variant curve. <br>
         </p>
       <div class="card builder-card">
@@ -876,9 +876,9 @@ const SAMPLE_MANIFEST = {images:[
   {country:'Germany', type:'time', url:PLACEHOLDER_IMG, filename:'germany_time_20250704.png', period:'2025-07'}
 ]};
 const SAMPLE_PARAMS_CSV = `country,variant,v1,v2,t0,baseline_year,data_per\n\
-Türkiye,Whole,-3.2,2.8,2027-07-01,2020,2025-08\n\
-Denmark,Whole,-4.1,3.2,2024-05-19,2018,2025-09\n\
-Singapore,Whole,-3.7,3.0,2025-09-10,2019,2025-08`;
+Türkiye,New Cars,-3.2,2.8,2027-07-01,2020,2025-08\n\
+Denmark,New Cars,-4.1,3.2,2024-05-19,2018,2025-09\n\
+Singapore,New Cars,-3.7,3.0,2025-09-10,2019,2025-08`;
 
 // -------- Tabs --------
 function activateTabByHash(){
@@ -999,7 +999,7 @@ function normalizeBase(s){
   if(!k) return '';
 
   if ([
-    'all','total','overall','whole','total market','market total',
+    'new cars','passenger cars','new cars','passenger cars','all','total','overall','whole','total market','market total',
     'entire','entire market','total vehicles','fleet total'
   ].includes(k)) return 'whole';
 
@@ -1011,7 +1011,7 @@ function normalizeBase(s){
   return k;
 }
 
-function displayLabelFromBase(base){ const n=normalizeBase(base); if(n==='whole') return 'Whole'; return String(base||'').replace(/\s+/g,' ').trim().replace(/(^|\s)\S/g,c=>c.toUpperCase()); }
+function displayLabelFromBase(base){ const n=normalizeBase(base); if(n==='whole') return 'New Cars'; return String(base||'').replace(/\s+/g,' ').trim().replace(/(^|\s)\S/g,c=>c.toUpperCase()); }
 function yearsIndexToDate(xYears, baseline_date, baseline_year){ if(!isFinite(xYears)) return ""; if(xYears>=1800 && xYears<3000){ const y=Math.floor(xYears); const frac=xYears-y; const start=new Date(Date.UTC(y,0,1)); const end=new Date(Date.UTC(y+1,0,1)); const t=start.getTime()+frac*(end.getTime()-start.getTime()); { const d = new Date(t); return isNaN(d) ? "" : d.toISOString().slice(0,10); }} let base; if(baseline_date && /^\d{4}-\d{2}-\d{2}$/.test(baseline_date)){ base=new Date(baseline_date+'T00:00:00Z'); } else if(isFinite(normNumber(baseline_year))){ base=new Date(Math.round(normNumber(baseline_year))+'-01-01T00:00:00Z'); } else { return ""; } if(isNaN(base)) return ""; const years=Math.floor(xYears), frac=xYears-years; const start=new Date(Date.UTC(base.getUTCFullYear()+years, base.getUTCMonth(), base.getUTCDate())); const end=new Date(Date.UTC(start.getUTCFullYear()+1,start.getUTCMonth(),start.getUTCDate())); const t=start.getTime()+frac*(end.getTime()-start.getTime()); { const d = new Date(t); return isNaN(d) ? "" : d.toISOString().slice(0,10); } }
 function inv_x_years(y,v1,v2,t0){
   let v1n=normNumber(v1), 
