@@ -1202,46 +1202,6 @@
       "country_slug": "ireland"
     },
     {
-      "country": "Italy",
-      "type": "ICE_BEV",
-      "period": "2026-03",
-      "date": "2026-05-02",
-      "filename": "italy_ICE_BEV_20260502.png",
-      "url": "images/2026-03/italy_ICE_BEV_20260502.png",
-      "alt": "Italy ICE-BEV-Hybrid trajectory",
-      "country_slug": "italy"
-    },
-    {
-      "country": "Italy",
-      "type": "share",
-      "period": "2026-03",
-      "date": "2026-05-02",
-      "filename": "italy_20260502.png",
-      "url": "images/2026-03/italy_20260502.png",
-      "alt": "Italy BEV trajectory",
-      "country_slug": "italy"
-    },
-    {
-      "country": "Italy",
-      "type": "time",
-      "period": "2026-03",
-      "date": "2026-05-02",
-      "filename": "italy_time_20260502.png",
-      "url": "images/2026-03/italy_time_20260502.png",
-      "alt": "Italy Transition time curve",
-      "country_slug": "italy"
-    },
-    {
-      "country": "Italy",
-      "type": "ttm_shares",
-      "period": "2026-03",
-      "date": "2026-05-02",
-      "filename": "italy_ttm_shares_20260502.png",
-      "url": "images/2026-03/italy_ttm_shares_20260502.png",
-      "alt": "Italy TTM market split graph",
-      "country_slug": "italy"
-    },
-    {
       "country": "Japan",
       "type": "ICE_BEV",
       "period": "2026-03",
@@ -3602,46 +3562,6 @@
       "country_slug": "ireland"
     },
     {
-      "country": "Italy",
-      "type": "ICE_BEV",
-      "period": "2026-03",
-      "date": "2026-05-01",
-      "filename": "italy_ICE_BEV_20260501.png",
-      "url": "images/2026-03/italy_ICE_BEV_20260501.png",
-      "alt": "Italy ICE-BEV-Hybrid trajectory",
-      "country_slug": "italy"
-    },
-    {
-      "country": "Italy",
-      "type": "share",
-      "period": "2026-03",
-      "date": "2026-05-01",
-      "filename": "italy_20260501.png",
-      "url": "images/2026-03/italy_20260501.png",
-      "alt": "Italy BEV trajectory",
-      "country_slug": "italy"
-    },
-    {
-      "country": "Italy",
-      "type": "time",
-      "period": "2026-03",
-      "date": "2026-05-01",
-      "filename": "italy_time_20260501.png",
-      "url": "images/2026-03/italy_time_20260501.png",
-      "alt": "Italy Transition time curve",
-      "country_slug": "italy"
-    },
-    {
-      "country": "Italy",
-      "type": "ttm_shares",
-      "period": "2026-03",
-      "date": "2026-05-01",
-      "filename": "italy_ttm_shares_20260501.png",
-      "url": "images/2026-03/italy_ttm_shares_20260501.png",
-      "alt": "Italy TTM market split graph",
-      "country_slug": "italy"
-    },
-    {
       "country": "Japan",
       "type": "ICE_BEV",
       "period": "2026-03",
@@ -5270,46 +5190,6 @@
       "url": "images/2026-03/newzealand_legacy_ttm_shares_20260406.png",
       "alt": "New Zealand (Legacy) TTM market split graph",
       "country_slug": "newzealand_legacy"
-    },
-    {
-      "country": "Italy",
-      "type": "ICE_BEV",
-      "period": "2026-03",
-      "date": "2026-04-03",
-      "filename": "italy_ICE_BEV_20260403.png",
-      "url": "images/2026-03/italy_ICE_BEV_20260403.png",
-      "alt": "Italy ICE-BEV-Hybrid trajectory",
-      "country_slug": "italy"
-    },
-    {
-      "country": "Italy",
-      "type": "share",
-      "period": "2026-03",
-      "date": "2026-04-03",
-      "filename": "italy_20260403.png",
-      "url": "images/2026-03/italy_20260403.png",
-      "alt": "Italy BEV trajectory",
-      "country_slug": "italy"
-    },
-    {
-      "country": "Italy",
-      "type": "time",
-      "period": "2026-03",
-      "date": "2026-04-03",
-      "filename": "italy_time_20260403.png",
-      "url": "images/2026-03/italy_time_20260403.png",
-      "alt": "Italy Transition time curve",
-      "country_slug": "italy"
-    },
-    {
-      "country": "Italy",
-      "type": "ttm_shares",
-      "period": "2026-03",
-      "date": "2026-04-03",
-      "filename": "italy_ttm_shares_20260403.png",
-      "url": "images/2026-03/italy_ttm_shares_20260403.png",
-      "alt": "Italy TTM market split graph",
-      "country_slug": "italy"
     },
     {
       "country": "Ireland",
