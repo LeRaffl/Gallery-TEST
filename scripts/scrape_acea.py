@@ -293,7 +293,7 @@ def main() -> int:
     print(f"[targets] {len(targets)} CSV(s) will be touched: {', '.join(targets)}")
 
     period = f"{args.year}M{args.month:02d}"
-    year_frac = (args.year - 1) + args.month / 12
+    year_frac = (args.year - 1) + (args.month - 1) / 12
 
     touched = 0
     for country, values in rows.items():
