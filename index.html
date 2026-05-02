@@ -819,6 +819,9 @@ h2 .fb-ctx-btn{width:30px;height:30px;font-size:16px;opacity:.6}
 
       <div>
         <label class="small">Registrations by category</label>
+        <p class="small" style="margin:8px 0 12px;color:var(--muted);max-width:72ch">
+          Default view shows the full category superset. After you choose a market, the form narrows to the categories already used by that market. Use <code>ICE</code> only when the source does not split <code>PETROL</code> and <code>DIESEL</code>.
+        </p>
         <div id="dsCategoryGrid" class="data-submit-cats"></div>
       </div>
 
@@ -5669,6 +5672,7 @@ function fbWireEvents(){
 // the browser; it opens a structured review topic through the feedback flow.
 // =========================================================================
 const DS_CATEGORY_ORDER = ['BEV','PHEV','EREV','HEV','HYBRIDS','PETROL','DIESEL','ICE','OTHER','TOTAL'];
+const DS_DEFAULT_CATEGORIES = ['BEV','PHEV','HEV','PETROL','DIESEL','ICE','OTHER','TOTAL'];
 const DS_STATE = { markets: [], categories: [] };
 
 function dsSetStatus(msg){ const el = document.getElementById('dsStatus'); if (el) el.textContent = msg || ''; }
@@ -5700,7 +5704,7 @@ function dsSelectedMarket(){
 }
 function dsOrderedCategories(cats){
   const set = new Set((cats || []).map(c => String(c || '').trim().toUpperCase()).filter(Boolean));
-  if (!set.size) ['BEV','PHEV','HEV','ICE','OTHER','TOTAL'].forEach(c => set.add(c));
+  if (!set.size) DS_DEFAULT_CATEGORIES.forEach(c => set.add(c));
   const ordered = DS_CATEGORY_ORDER.filter(c => set.has(c));
   [...set].sort().forEach(c => { if (!ordered.includes(c)) ordered.push(c); });
   return ordered;
@@ -5722,26 +5726,57 @@ async function dsLoadMarkets(){
   const sel = document.getElementById('dsMarket');
   if (!sel) return;
   try {
-    const res = await fetch('data/markets/_index.csv', { cache: 'no-store' });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const rows = parseCSV(await res.text());
+    const urls = ['./data/markets/_index.csv', 'data/markets/_index.csv', '/data/markets/_index.csv'];
+    let text = null;
+    for (const url of urls) {
+      try {
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) continue;
+        text = await res.text();
+        break;
+      } catch {
+        /* try next path */
+      }
+    }
+    if (!text) throw new Error('could not load market index');
+    const rows = parseCSV(text);
     DS_STATE.markets = rows.filter(r => r.slug && r.sheet_name);
     sel.innerHTML = '<option value="">Choose market...</option>' + DS_STATE.markets.map(r => `
       <option value="${fbEscape(r.slug)}" data-sheet-name="${fbEscape(r.sheet_name)}" data-country="${fbEscape(r.country)}" data-variant="${fbEscape(r.variant)}">${fbEscape(r.sheet_name)}</option>
     `).join('');
+    if (!DS_STATE.markets.length) {
+      sel.innerHTML = '<option value="">Market index is empty</option>';
+      dsSetStatus('No markets found in _index.csv.');
+    }
   } catch (err) {
     console.warn('[data-submission] could not load market index:', err);
     sel.innerHTML = '<option value="">Market index unavailable</option>';
+    dsSetStatus('Could not load market list.');
   }
 }
 async function dsLoadMarketCategories(){
   const market = dsSelectedMarket();
-  if (!market) { dsRenderCategoryInputs([]); return; }
+  if (!market) {
+    dsSetStatus('');
+    dsRenderCategoryInputs([]);
+    return;
+  }
   dsSetStatus('Loading category template...');
   try {
-    const res = await fetch(`data/markets/${market.slug}.csv`, { cache: 'no-store' });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const rows = parseCSV(await res.text());
+    const urls = [`./data/markets/${market.slug}.csv`, `data/markets/${market.slug}.csv`, `/data/markets/${market.slug}.csv`];
+    let text = null;
+    for (const url of urls) {
+      try {
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) continue;
+        text = await res.text();
+        break;
+      } catch {
+        /* try next path */
+      }
+    }
+    if (!text) throw new Error('could not load market csv');
+    const rows = parseCSV(text);
     const categories = [...new Set(rows.map(r => r.category))];
     dsRenderCategoryInputs(categories);
     dsSetStatus('');
@@ -5809,6 +5844,7 @@ function dsUpdatePreview(){
   const built = dsBuildPayload();
   const preview = document.getElementById('dsPreview');
   const warnings = document.getElementById('dsWarnings');
+  if (!built.csv) dsSetStatus('');
   if (preview) {
     preview.textContent = built.csv
       ? 'period,interval,year,category,registrations,source\n' + built.csv
@@ -5878,6 +5914,7 @@ function dataSubmissionInit(){
     const now = new Date();
     period.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2,'0')}`;
   }
+  dsSetStatus('');
   dsRenderCategoryInputs([]);
   dsLoadMarkets();
   document.getElementById('dsMarket')?.addEventListener('change', dsLoadMarketCategories);
