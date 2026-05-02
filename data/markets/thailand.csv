@@ -586,3 +586,9 @@ period,interval,year,category,registrations,source
 2026M02,monthly,2025.083333,ICE,28511,data.thaiauto.or.th
 2026M02,monthly,2025.083333,PHEV,1024,data.thaiauto.or.th
 2026M02,monthly,2025.083333,TOTAL,48934,data.thaiauto.or.th
+2026M03,monthly,2025.166667,BEV,4830,https://www.ev-blitz.com/en/countries/thailand
+2026M03,monthly,2025.166667,HEV,14672,https://www.ev-blitz.com/en/countries/thailand
+2026M03,monthly,2025.166667,ICE,28511,https://www.ev-blitz.com/en/countries/thailand
+2026M03,monthly,2025.166667,OTHER,4,https://www.ev-blitz.com/en/countries/thailand
+2026M03,monthly,2025.166667,PHEV,1021,https://www.ev-blitz.com/en/countries/thailand
+2026M03,monthly,2025.166667,TOTAL,48934,https://www.ev-blitz.com/en/countries/thailand
