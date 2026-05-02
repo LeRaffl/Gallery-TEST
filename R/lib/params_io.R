@@ -13,6 +13,17 @@ suppressPackageStartupMessages({
   library(utils)
 })
 
+if (!exists("normalize_variant", mode = "function")) {
+  for (.variant_file in c(file.path("R", "lib", "variants.R"),
+                          file.path("lib", "variants.R"),
+                          "variants.R")) {
+    if (file.exists(.variant_file)) {
+      source(.variant_file)
+      break
+    }
+  }
+}
+
 PARAMS_COLUMNS  <- c("country","variant","v1","v2","t0",
                      "data_per","model_date","source","baseline_date",
                      "ice_v1","ice_v2","ice_t0")
@@ -77,6 +88,7 @@ read_params_csv <- function(path) {
     df[[nm]] <- trimws(as.character(df[[nm]]))
     df[[nm]][df[[nm]] == "NA"] <- ""
   }
+  df$variant <- normalize_variant(df$variant)
 
   df
 }
@@ -84,10 +96,13 @@ read_params_csv <- function(path) {
 # Upsert one row into the params data frame, matching on (country, variant)
 # case-insensitively for country.
 upsert_params_row <- function(params, row) {
+  params$variant <- normalize_variant(params$variant)
+  row$variant <- normalize_variant(row$variant)
   idx <- which(country_key(params$country) == country_key(row$country) &
-                 params$variant == row$variant)
-  if (length(idx) == 1) {
-    params[idx, ] <- row
+                 variant_key(params$variant) == variant_key(row$variant))
+  if (length(idx) >= 1) {
+    params[idx[1], ] <- row
+    if (length(idx) > 1) params <- params[-idx[-1], , drop = FALSE]
   } else {
     params <- rbind(params, row)
   }
@@ -111,6 +126,7 @@ write_params_csv <- function(params, path) {
     df[[nm]] <- gsub("[\\x00-\\x1F\\x7F\\x80-\\x9F]", "", df[[nm]], perl = TRUE)
     df[[nm]] <- trimws(df[[nm]])
   }
+  df$variant <- normalize_variant(df$variant)
 
   num_cols <- c("v1","v2","t0","ice_v1","ice_v2","ice_t0")
   for (nm in num_cols) df[[nm]] <- format_param_number(df[[nm]])
@@ -130,10 +146,13 @@ read_weights_csv <- function(path) {
   df <- as.data.frame(read_csv(path, show_col_types = FALSE, progress = FALSE),
                       check.names = FALSE)
   for (nm in setdiff(WEIGHTS_COLUMNS, names(df))) df[[nm]] <- NA
-  df[, WEIGHTS_COLUMNS, drop = FALSE]
+  df <- df[, WEIGHTS_COLUMNS, drop = FALSE]
+  df$variant <- normalize_variant(df$variant)
+  df
 }
 
 upsert_weights_row <- function(weights, country, variant, weight, data_per) {
+  variant <- normalize_variant(variant)
   new <- data.frame(
     country    = country,
     variant    = variant,
@@ -142,10 +161,12 @@ upsert_weights_row <- function(weights, country, variant, weight, data_per) {
     model_date = format(Sys.Date(), "%Y-%m-%d"),
     stringsAsFactors = FALSE
   )
+  weights$variant <- normalize_variant(weights$variant)
   idx <- which(country_key(weights$country) == country_key(country) &
-                 weights$variant == variant)
-  if (length(idx) == 1) {
-    weights[idx, ] <- new
+                 variant_key(weights$variant) == variant_key(variant))
+  if (length(idx) >= 1) {
+    weights[idx[1], ] <- new
+    if (length(idx) > 1) weights <- weights[-idx[-1], , drop = FALSE]
   } else {
     weights <- rbind(weights, new)
   }
@@ -153,6 +174,7 @@ upsert_weights_row <- function(weights, country, variant, weight, data_per) {
 }
 
 write_weights_csv <- function(weights, path) {
+  weights$variant <- normalize_variant(weights$variant)
   write_csv(weights, path)
   invisible(weights)
 }

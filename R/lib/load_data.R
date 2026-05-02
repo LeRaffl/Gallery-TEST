@@ -27,6 +27,17 @@ suppressPackageStartupMessages({
   library(tidyr)
 })
 
+if (!exists("normalize_variant", mode = "function")) {
+  for (.variant_file in c(file.path("R", "lib", "variants.R"),
+                          file.path("lib", "variants.R"),
+                          "variants.R")) {
+    if (file.exists(.variant_file)) {
+      source(.variant_file)
+      break
+    }
+  }
+}
+
 # Resolve a sheet name (e.g. "Denmark (HDV)") to a CSV path under data/markets/.
 # Slug rules mirror captions.R::country_to_flag_slug + the variant suffix.
 sheet_name_to_slug <- function(sheet_name) {
@@ -34,11 +45,12 @@ sheet_name_to_slug <- function(sheet_name) {
     country <- trimws(sub("\\s*\\(.*\\)\\s*", "", sheet_name))
     variant <- sub(".*\\(([^)]+)\\).*", "\\1", sheet_name)
   } else {
-    country <- sheet_name; variant <- "Whole"
+    country <- sheet_name; variant <- DEFAULT_VARIANT
   }
+  variant <- normalize_variant(variant)
   base <- if (exists("country_to_flag_slug")) country_to_flag_slug(country) else
     tolower(gsub("\\s+", "", country))
-  if (variant == "Whole") base else paste0(base, "_", tolower(gsub("\\s+", "_", variant)))
+  if (is_default_variant(variant)) base else paste0(base, "_", variant_slug_suffix(variant))
 }
 
 # Public entry. The signature (`xlsx_path`, `sheet_name`) is kept for

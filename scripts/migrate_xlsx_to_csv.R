@@ -36,6 +36,8 @@ xlsx     <- file.path(repo_dir, "data", "raw", "bev_share_acea.xlsx")
 out_dir  <- file.path(repo_dir, "data", "markets")
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
+source(file.path(repo_dir, "R", "lib", "variants.R"))
+
 SKIP_SHEETS <- c(
   "Europeanunion", "Netherlands_HDV(old)", "NewZealand (Legacy)",
   "Georgia (Fleet)", "Netherlands (Fleet)"
@@ -64,12 +66,15 @@ country_to_slug <- function(country) {
 parse_sheet_name <- function(sheet) {
   if (grepl("\\(", sheet)) {
     country <- trimws(sub("\\s*\\(.*\\)\\s*", "", sheet))
-    variant <- sub(".*\\(([^)]+)\\).*", "\\1", sheet)
-    slug    <- paste0(country_to_slug(country), "_",
-                      tolower(gsub("\\s+", "_", variant)))
+    variant <- normalize_variant(sub(".*\\(([^)]+)\\).*", "\\1", sheet))
+    slug    <- if (is_default_variant(variant)) {
+      country_to_slug(country)
+    } else {
+      paste0(country_to_slug(country), "_", variant_slug_suffix(variant))
+    }
   } else {
     country <- sheet
-    variant <- "Whole"
+    variant <- DEFAULT_VARIANT
     slug    <- country_to_slug(country)
   }
   list(country = country, variant = variant, slug = slug)
@@ -137,7 +142,7 @@ sheet_to_long <- function(raw, parsed) {
     }
   }
 
-  # Sanity filter: discard absurd year values (Denmark Whole had 7094, 9855)
+  # Sanity filter: discard absurd year values (Denmark's default market had 7094, 9855)
   if ("year" %in% names(raw)) {
     bad <- !is.na(raw$year) & (raw$year <= 1990 | raw$year >= 2100)
     raw <- raw[!bad, , drop = FALSE]

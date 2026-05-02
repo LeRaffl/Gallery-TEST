@@ -6,7 +6,7 @@ the production gallery.
 
 ## Konzept in 60 Sekunden
 
-- `index.html` is the whole app: static HTML/CSS/JS, no backend for the gallery.
+- `index.html` is the entire app: static HTML/CSS/JS, no backend for the gallery.
 - The canonical source data lives in `data/markets/*.csv`, one long-format CSV per market.
 - `R/run_all.R` reads those CSVs, fits the BEV and ICE transition curves, writes charts, `params.csv`, `weights.csv` and post snippets.
 - `build_manifest.R` scans `images/` and writes `manifest.json`; the Gallery tab only knows images through that manifest.
@@ -51,6 +51,8 @@ period,interval,year,category,registrations,source
 - `category`: uppercase fuel category.
 - `registrations`: absolute registrations, not percentages.
 - `source`: source string or URL for that row.
+- Default passenger-car market variant is `New Cars`; older default-scope
+  labels are accepted only as legacy aliases during imports/upserts.
 
 Common categories:
 

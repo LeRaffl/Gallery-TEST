@@ -37,6 +37,7 @@ R/
 ├── run_all.R
 └── lib/
     ├── load_data.R
+    ├── variants.R
     ├── model.R
     ├── plots.R
     ├── params_io.R
@@ -67,4 +68,6 @@ R/
 - `params.csv` and `weights.csv` are generated.
 - `build_manifest.R` must run after images change.
 - Country spelling matters because the browser dedupes and warns on legacy aliases.
+- The default passenger-car variant is `New Cars`; older default-scope inputs
+  are normalized as legacy aliases and should not be written to generated CSVs.
 - The pipeline writes to the working tree only; GitHub Actions or a human commits the output.

@@ -15,6 +15,17 @@ suppressPackageStartupMessages({
   library(dplyr)
 })
 
+if (!exists("display_market_label", mode = "function")) {
+  for (.variant_file in c(file.path("R", "lib", "variants.R"),
+                          file.path("lib", "variants.R"),
+                          "variants.R")) {
+    if (file.exists(.variant_file)) {
+      source(.variant_file)
+      break
+    }
+  }
+}
+
 # Two letters → regional-indicator emoji (e.g. "AT" → 🇦🇹)
 iso2_to_flag <- function(iso2) {
   if (is.na(iso2) || nchar(iso2) != 2) return("")
@@ -191,7 +202,7 @@ build_post_text <- function(country, variant, data, flags,
   flag <- country_to_flag_emoji(country)
   period_label <- post_period_label(data)
 
-  display_country <- if (variant == "Whole") country else paste0(country, " (", variant, ")")
+  display_country <- display_market_label(country, variant)
   header <- sprintf("%s %s - %s - BEV Trajectory", flag, display_country, period_label)
 
   m <- last_monthly_shares(data)

@@ -826,7 +826,7 @@ h2 .fb-ctx-btn{width:30px;height:30px;font-size:16px;opacity:.6}
         </div>
         <div class="field">
           <label for="dsNewVariant">Variant / scope</label>
-          <input id="dsNewVariant" type="text" list="dsVariantList" placeholder="Whole, HDV, Vans, Private...">
+          <input id="dsNewVariant" type="text" list="dsVariantList" placeholder="New Cars, HDV, Vans, Private...">
           <datalist id="dsVariantList"></datalist>
         </div>
         <div class="field">
@@ -1179,19 +1179,19 @@ h2 .fb-ctx-btn{width:30px;height:30px;font-size:16px;opacity:.6}
         <div class="field">
           <label>Weights variant</label>
           <select id="builderWeightVariant" multiple size="4">
-            <option value="whole" selected>New Cars</option>
+            <option value="new cars" selected>New Cars</option>
             <!--
               Legacy option intentionally kept as a disabled reminder, do NOT delete.
               Background: India used to expose its passenger cars under the non-
               standard variant label "4-Wheelers" (alongside "2-Wheelers" and
               "3-Wheelers"). The successor dataset folds India's 4-wheelers into
-              the regular "Whole" bucket used by every other country, so the
+              the regular "New Cars" bucket used by every other country, so the
               option below is redundant for all current data. The option stays
               commented out — and the matching "India|4-Wheelers" rows stay in
               params.csv / weights.csv — so historical comparisons and old R
               exports remain resolvable. Re-enabling it requires re-mapping the
               India rows in params.csv / weights.csv first, otherwise the builder
-              will end up double-counting India (once via "Whole", once via
+              will end up double-counting India (once via "New Cars", once via
               "4-Wheelers").
             -->
             <!-- <option value="4-wheelers" >4-Wheelers</option> -->
@@ -1589,7 +1589,7 @@ h2 .fb-ctx-btn{width:30px;height:30px;font-size:16px;opacity:.6}
     </h2>
     <p class="small" style="margin:0 0 14px">
       Same country data as the <b>Thresholds</b> and <b>Durations</b> tabs, painted on a world map.
-      Only the default (whole-market, passenger-car) variant is shown.
+      Only the default New Cars / passenger-car variant is shown.
     </p>
 
     <div class="card" style="margin-bottom:14px">
@@ -1843,9 +1843,9 @@ const SAMPLE_MANIFEST = {images:[
   {country:'Germany', type:'time', url:PLACEHOLDER_IMG, filename:'germany_time_20250704.png', period:'2025-07'}
 ]};
 const SAMPLE_PARAMS_CSV = `country,variant,v1,v2,t0,baseline_year,data_per\n\
-Türkiye,Whole,-3.2,2.8,2027-07-01,2020,2025-08\n\
-Denmark,Whole,-4.1,3.2,2024-05-19,2018,2025-09\n\
-Singapore,Whole,-3.7,3.0,2025-09-10,2019,2025-08`;
+Türkiye,New Cars,-3.2,2.8,2027-07-01,2020,2025-08\n\
+Denmark,New Cars,-4.1,3.2,2024-05-19,2018,2025-09\n\
+Singapore,New Cars,-3.7,3.0,2025-09-10,2019,2025-08`;
 
 // -------- Tabs --------
 function activateTabByHash(){
@@ -2112,8 +2112,11 @@ loadManifest().then(({images})=>{
 }).catch(err=>{ empty.hidden=false; empty.textContent=(err&&err.message)||'Failed to load manifest.json'; });
 
 // debug warning system
+const DEFAULT_VARIANT_CANON = 'new cars';
+const DEFAULT_VARIANT_LABEL = 'New Cars';
+
 function getWeight(country){
-  const key = `${country}|whole`;
+  const key = `${country}|${DEFAULT_VARIANT_CANON}`;
   const w = fleetState.weights[key];
   if (w === undefined) {
     console.warn("Missing weight for", key);
@@ -2148,9 +2151,11 @@ function normalizeBase(s){
   if(!k) return '';
 
   if ([
+    'new cars','new car','passenger cars','passenger car',
+    'new_cars','new-cars','passenger_cars','passenger-cars',
     'all','total','overall','whole','total market','market total',
     'entire','entire market','total vehicles','fleet total'
-  ].includes(k)) return 'whole';
+  ].includes(k)) return DEFAULT_VARIANT_CANON;
 
   if ([
     'hdv','heavy duty','heavy-duty','heavy duty vehicles',
@@ -2241,7 +2246,7 @@ function displayLabelFromBase(base){
   const n = normalizeBase(base);
   const raw = String(base || '').trim();
   const map = {
-    whole: 'New Cars',
+    [DEFAULT_VARIANT_CANON]: DEFAULT_VARIANT_LABEL,
     used: 'Used Cars',
     'used imports': 'Used Cars (imported)',
     private: 'New Cars (Private)',
@@ -2259,16 +2264,7 @@ function displayLabelFromBase(base){
 }
   
 function displayVariantLabel(v){
-  const map = {
-    "Whole": "New Cars",
-    "Used": "Used Cars",
-    "Used Imports": "Used Cars (imported)",
-    "Private": "New Cars (Private)",
-    "Industry": "New Cars (Industry)",
-    "Vans": "New Vans",
-    "HDV": "New HDV"
-  };
-  return map[v] || v;
+  return displayLabelFromBase(v);
 }
 function yearsIndexToDate(xYears, baseline_date, baseline_year){ 
   if(!isFinite(xYears)) return ""; 
@@ -2366,7 +2362,7 @@ function renderThresholds(csvText){
         opt.value = canonical;
         opt.textContent = displayLabelFromBase(base);
 
-        if(canonical === 'whole') opt.selected = true;
+        if(canonical === DEFAULT_VARIANT_CANON) opt.selected = true;
         sel.appendChild(opt);
       });
 
@@ -2640,7 +2636,7 @@ renderTable();
   }
   function yx(r,y){ const v1=normNumber(r.v1), v2=normNumber(r.v2), t0=getT0Years(r); const res=inv_x_years(y,v1,v2,t0); return (res&&isFinite(res.x))?res.x:NaN; }
   function fmtYearsMonths(dYears){ if(!isFinite(dYears)) return '—'; if(Math.abs(dYears)>CAP_YEARS) return 'shows no transition'; const abs=Math.abs(dYears); const years=Math.floor(abs+1e-9); const months=Math.round((abs-years)*12); const parts=[]; if(years) parts.push(`${years}y`); if(months||!years) parts.push(`${months}m`); return parts.join(' ');}  
-  function makeVariantOptions(rows){ const rawBases=new Set(); rows.forEach(r=>{ const p=extractVariantParts(r.variant||''); if(p.base) rawBases.add(p.base); }); const sel=document.getElementById('variantMultiD'); sel.innerHTML=''; const seen=new Set(); [...rawBases].sort((a,b)=>a.localeCompare(b)).forEach(base=>{ const canon=normalizeBase(base); if(!canon||seen.has(canon)) return; seen.add(canon); const opt=document.createElement('option'); opt.value=canon; opt.textContent=displayLabelFromBase(base); if(canon==='whole') opt.selected=true; sel.appendChild(opt); }); }
+  function makeVariantOptions(rows){ const rawBases=new Set(); rows.forEach(r=>{ const p=extractVariantParts(r.variant||''); if(p.base) rawBases.add(p.base); }); const sel=document.getElementById('variantMultiD'); sel.innerHTML=''; const seen=new Set(); [...rawBases].sort((a,b)=>a.localeCompare(b)).forEach(base=>{ const canon=normalizeBase(base); if(!canon||seen.has(canon)) return; seen.add(canon); const opt=document.createElement('option'); opt.value=canon; opt.textContent=displayLabelFromBase(base); if(canon===DEFAULT_VARIANT_CANON) opt.selected=true; sel.appendChild(opt); }); }
   function computeDurations(rows){ const fromPct=Math.max(1,Math.min(98,Number(document.getElementById('customFrom').value)||25)); const toPct=Math.max(fromPct+1,Math.min(99,Number(document.getElementById('customTo').value)||75)); function normDur(d){ if(!isFinite(d)) return {text:'—',val:Infinity}; if(Math.abs(d)>CAP_YEARS) return {text:'shows no transition',val:Infinity}; return {text:fmtYearsMonths(d),val:d}; } return rows.map(r=>{ const x10=yx(r,0.10), x20=yx(r,0.20), x80=yx(r,0.80), x90=yx(r,0.90); const xf=yx(r,fromPct/100), xt=yx(r,toPct/100); const d2080=normDur(x80-x20); const d1090=normDur(x90-x10); const dC=normDur(xt-xf); const sNum=slopeAtInflection(r.v1,r.v2); const p=extractVariantParts(r.variant||''); return { country:r.country||'', variant:r.variant||'', variantBaseCanonical:normalizeBase(p.base||''), d2080_text:d2080.text,_d2080:d2080.val, d1090_text:d1090.text,_d1090:d1090.val, dC_text:dC.text,_dC:dC.val, speed_text:isFinite(sNum)?((sNum*100).toFixed(2)+' %/year'):'—', _speed:isFinite(sNum)?sNum:-Infinity, data_per:getDataPer(r), _periodSort:Date.parse((getDataPer(r)||'')+'-01')||0 }; }); }
   function renderDurations(rows){
     const mount=document.getElementById('durationsMount'); const sel=document.getElementById('variantMultiD'); makeVariantOptions(rows);
@@ -2758,7 +2754,7 @@ function loadWeights(){
             ).trim();
 
             const variant = normalizeBase(
-              pick(r,['variant','Variant']) || 'whole'
+              pick(r,['variant','Variant']) || DEFAULT_VARIANT_LABEL
             );
 
             const w = normNumber(
@@ -2919,7 +2915,7 @@ big_markets: rows => {
     const sel = document.getElementById('builderCountries');
     const chosen = [...sel.selectedOptions].map(o=>o.value);
     if(!chosen.length) return;
-    const vSels = getSelectedWeightVariants(); // ['whole','4-wheelers',...]
+    const vSels = getSelectedWeightVariants();
     const rows = PARAM_ROWS.filter(r =>
       chosen.includes(r.country) &&
       vSels.includes(normalizeBase(r.variant))
@@ -2937,15 +2933,15 @@ big_markets: rows => {
   // D2: look up the weight for the row's OWN variant, not the first
   // user-selected variant. The old code iterated vSels and broke on the
   // first hit, which meant a Denmark|HDV row got weighted by the
-  // Denmark|whole passenger-car count whenever the user also had
+  // Denmark|New Cars passenger-car count whenever the user also had
   // "New Cars" selected. Now: exact-variant first, fall back to
-  // `whole`, then 1.
+  // the default New Cars weight, then 1.
   const weightForRow = (r) => {
     const rowVariant = normalizeBase(r.variant);
     const exact = WEIGHTS[`${r.country}|${rowVariant}`];
     if (isFinite(exact)) return exact;
-    const whole = WEIGHTS[`${r.country}|whole`];
-    if (isFinite(whole)) return whole;
+    const defaultWeight = WEIGHTS[`${r.country}|${DEFAULT_VARIANT_CANON}`];
+    if (isFinite(defaultWeight)) return defaultWeight;
     return 1;
   };
 
@@ -3410,7 +3406,7 @@ function buildWeightMap(rows){
   const groups = new Map(); // canonKey -> [{country, variant, weight}]
   rows.forEach(r => {
     const country = String(r.country || r.Country || '').trim();
-    const variant = normalizeBase(r.variant || r.Variant || 'whole');
+    const variant = normalizeBase(r.variant || r.Variant || DEFAULT_VARIANT_LABEL);
     const weight  = normNumber(r.weight || r.Weight || r.market_size || r.size);
     if (!country || !isFinite(weight)) return;
     const canonKey = `${canonicalCountryKey(country)}|${variant}`;
@@ -3534,13 +3530,13 @@ function getCountryCandidates(country){
   return [...new Set(candidates)];
 }
 
-function getCountryWholeParam(country){
+function getCountryDefaultParam(country){
   const candidates = getCountryCandidates(country);
 
   for (const c of candidates) {
     const row = fleetState.params.find(r =>
       String(r.country || '').trim() === c &&
-      normalizeBase(r.variant) === 'whole'
+      normalizeBase(r.variant) === DEFAULT_VARIANT_CANON
     );
     if (row) return row;
   }
@@ -3553,8 +3549,8 @@ function getCountryAnnualInflow(country){
   const candidates = getCountryCandidates(country);
 
   for (const c of candidates) {
-    const wWhole = fleetState.weights[`${c}|whole`];
-    if (wWhole !== undefined) return Number(wWhole) || 0;
+    const wDefault = fleetState.weights[`${c}|${DEFAULT_VARIANT_CANON}`];
+    if (wDefault !== undefined) return Number(wDefault) || 0;
     //4-wheelers are now legacy
     //const w4 = fleetState.weights[`${c}|4-wheelers`];
     //if (w4 !== undefined) return Number(w4) || 0;
@@ -3565,7 +3561,7 @@ function getCountryAnnualInflow(country){
 }
 
 function modeledBevShareForYear(country, year){
-  const r = getCountryWholeParam(country);
+  const r = getCountryDefaultParam(country);
   if(!r) return NaN;
 
   const v1 = normNumber(r.v1);
@@ -3580,7 +3576,7 @@ function modeledBevShareForYear(country, year){
 }
 
 function modeledIceShareForYear(country, year){
-  const r = getCountryWholeParam(country);
+  const r = getCountryDefaultParam(country);
   if(!r) return NaN;
 
   const v1 = normNumber(r.ice_v1);
@@ -4633,8 +4629,8 @@ document.addEventListener('keydown', (e) => {
 // -------- WORLD MAP --------
 //
 // The world map reuses the same Weibull-fit data that Thresholds and
-// Durations already load from params.csv. We only take the "whole"
-// (passenger-car / whole-market) variant of each country, cache the
+// Durations already load from params.csv. We only take the default
+// New Cars / passenger-car variant of each country, cache the
 // raw v1/v2/t0/baseline, and compute year-at-threshold / duration
 // on demand so the user can pick any threshold and we don't have to
 // re-parse the CSV for every click.
@@ -4692,7 +4688,7 @@ function wmNormalizeCountry(raw){
 }
 
 // Pull params.csv (via the same two-URL probe Thresholds uses), keep
-// only the "whole" variant of each country, compute the 20/50/80 year
+// only the default New Cars variant of each country, compute the 20/50/80 year
 // and the 20→80 duration, and cache everything for fast re-renders.
 function wmLoadData(){
   if (WORLDMAP_STATE.loaded) return Promise.resolve();
@@ -4707,7 +4703,7 @@ function wmLoadData(){
         .then(r => r.ok ? r.text() : Promise.reject(new Error('HTTP ' + r.status)))
         .then(txt => {
           // D1(b): dedupe first so legacy-alias detection also covers
-          // the map tab. wmBuildRows still does its own (country, whole,
+          // the map tab. wmBuildRows still does its own country/default/data_per
           // data_per) collapse on top — both are cheap and composable.
           const rows = dedupeParamRows(parseCSV(txt));
           WORLDMAP_STATE.rows = wmBuildRows(rows);
@@ -4720,13 +4716,13 @@ function wmLoadData(){
 }
 
 function wmBuildRows(csvRows){
-  // Keep one row per country — the "whole" variant. If a country has
-  // several "whole" rows (shouldn't happen, but just in case) pick the
+  // Keep one row per country — the default New Cars variant. If a country has
+  // several default rows (shouldn't happen, but just in case) pick the
   // one with the most recent data_per so we reflect the freshest fit.
   const byCountry = new Map();
   for (const r of csvRows){
     const parts = extractVariantParts(r.variant || '');
-    if (normalizeBase(parts.base || '') !== 'whole') continue;
+    if (normalizeBase(parts.base || '') !== DEFAULT_VARIANT_CANON) continue;
 
     const country = wmNormalizeCountry(r.country);
     if (!country) continue;
@@ -4875,7 +4871,7 @@ function wmDurationFmt(years){
 
 // Percentile clip for the color scale — one or two outliers (Norway
 // hitting 80% well before anyone else) would otherwise flatten the
-// whole world into a single color. We clamp the scale to P5..P95 of
+// map into a single color. We clamp the scale to P5..P95 of
 // the actual data so the rest of the map gets a useful spread.
 function wmPercentileRange(values){
   const arr = values.filter(v => isFinite(v)).slice().sort((a,b)=>a-b);
@@ -5700,7 +5696,7 @@ function fbWireEvents(){
 const DS_CATEGORY_ORDER = ['BEV','PHEV','EREV','HEV','HYBRIDS','PETROL','DIESEL','FLEXFUEL','PETROL-GAS','ICE','OTHER','TOTAL'];
 const DS_DEFAULT_CATEGORIES = ['BEV','PHEV','HEV','PETROL','DIESEL','ICE','OTHER','TOTAL'];
 const DS_KNOWN_CATEGORIES = ['BEV','PHEV','EREV','HEV','HYBRIDS','PETROL','DIESEL','FLEXFUEL','PETROL-GAS','ICE','OTHER','TOTAL','CNG','LPG','FCEV','MHEV'];
-const DS_DEFAULT_VARIANTS = ['Whole','HDV','Vans','Private','Industry','Custom','Used Imports'];
+const DS_DEFAULT_VARIANTS = [DEFAULT_VARIANT_LABEL,'HDV','Vans','Private','Industry','Custom','Used Imports'];
 const DS_NEW_MARKET_VALUE = '__new_market__';
 const DS_STATE = { markets: [], categories: [], customCategories: [] };
 
@@ -5731,12 +5727,12 @@ function dsSlugify(value){
 }
 function dsNormalizeVariant(value){
   const v = String(value || '').trim();
-  return v || 'Whole';
+  return v || DEFAULT_VARIANT_LABEL;
 }
 function dsDisplayMarketName(country, variant){
   const c = String(country || '').trim();
   const v = dsNormalizeVariant(variant);
-  return !c || /^whole$/i.test(v) ? c : `${c} (${v})`;
+  return !c || normalizeBase(v) === DEFAULT_VARIANT_CANON ? c : `${c} (${v})`;
 }
 function dsNewMarketFromInputs(){
   const country = (document.getElementById('dsNewCountry')?.value || '').trim();

@@ -19,7 +19,7 @@ suppressPackageStartupMessages({
 # China-style EREV, single-ICE columns, etc. all render correctly.
 #
 # Time axis: prefers monthly data; falls back to quarterly when the sheet
-# has no monthly rows (Canada, Denmark Whole, Georgia, Malta etc.).
+# has no monthly rows (Canada, Denmark's default market, Georgia, Malta etc.).
 build_ttm_plot <- function(data, flags, country_label, caption) {
   data_monthly <- subset(data, !is.na(data$time_interval) & data$time_interval == "monthly")
   step_by <- "month"

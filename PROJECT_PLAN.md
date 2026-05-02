@@ -24,7 +24,7 @@ Variations to handle gracefully:
 - USA / South Korea / China-style: single `ICE` column instead of `Petrol` + `Diesel` split
 - Türkiye-style: single `HYBRIDS` column (HEV + PHEV combined), no PHEV
 - Thailand-style: has BOTH `ICE` AND `Petrol`+`Diesel`
-- Denmark Whole: missing `Petrol TTM` and `Other TTM`
+- Denmark default market: missing `Petrol TTM` and `Other TTM`
 - Europeanunion: 26 cols, duplicated TTMs, has `Hybrid` and `Fossil` aggregates
 - Malaysia: not in spreadsheet — pulled via API
 - India variants: `india` (cars), `india_2` (2-wheelers), `india_3` (3-wheelers)
@@ -35,7 +35,7 @@ Variations to handle gracefully:
 ```
 Gallery-TEST/
 ├── R/
-│   ├── bev_share.R                # entry: Rscript R/bev_share.R <country> [--variant Whole]
+│   ├── bev_share.R                # entry: Rscript R/bev_share.R <market sheet name>
 │   ├── lib/
 │   │   ├── load_data.R            # XLSX read + schema detect
 │   │   ├── normalize_schema.R     # → canonical BEV/PHEV/HEV/Petrol/Diesel/Other
@@ -85,10 +85,10 @@ Gallery-TEST/
   - [x] Indonesia rounding fix VERIFIED (was `0`, now `-6.11e-20` for `v1`, `-1.97e-20` for `ice_v1`)
   - [x] China EREV handling verified (folds into PHEV trajectory line, separate TTM layer)
   - [x] Türkiye HYBRIDS handling verified
-  - [x] Quarterly fallback in TTM plot (Canada, Denmark Whole, Georgia)
+  - [x] Quarterly fallback in TTM plot (Canada, Denmark default market, Georgia)
   - [x] Year reconstruction from `YYYYMMM` for sheets with empty `year` column (Malta)
   - [x] `OTHER` → `OTHERS` column alias (Malta)
-  - [x] NA-share row filter before optim (Denmark Whole 3 rows, NewZealand (HDV) 22 rows)
+  - [x] NA-share row filter before optim (Denmark default market 3 rows, NewZealand (HDV) 22 rows)
   - [x] Defensive timer-plot trim on non-finite BEV_time / ICE_time (Croatia)
   - [x] Defensive annotation loops (no crash on empty subsets)
   - [x] Robust `data_per_from_data` (skip NA-time_interval rows; fix q=5 bug)
@@ -124,5 +124,5 @@ Gallery-TEST/
 - **Mobile: read posts**: works today, but a one-tap iPhone Shortcut to fetch `posts/<slug>_<date>.txt` and copy to pasteboard isn't shipped here. (User had one for the old terminal-output workflow; needs porting.)
 - **Mobile: trigger ACEA scrape**: works via GitHub mobile app's "Run workflow" button; no custom shortcut needed.
 - **Non-ACEA monthly inputs (Austria, Germany, UK, Italy, Portugal, Sweden, Finland, Denmark, Netherlands)**: still tipped manually by editing `data/markets/<slug>.csv` directly via GitHub web UI. A scraper per non-ACEA source can be added later if any of them get tedious.
-- **Robust quarter→monthly handling for sheets without monthly data** (Canada, Denmark Whole, Georgia): pipeline handles them today but the TTM plot uses a quarterly fallback that visually differs from the monthly stack. Acceptable for now.
+- **Robust quarter→monthly handling for sheets without monthly data** (Canada, Denmark default market, Georgia): pipeline handles them today but the TTM plot uses a quarterly fallback that visually differs from the monthly stack. Acceptable for now.
 - **PROD repo (LeRaffl-Gallery) migration**: user will pull this when ready; expect a separate guide written closer to the cutover.

@@ -37,6 +37,7 @@ script_dir <- function() {
 R_DIR    <- script_dir()
 REPO_DIR <- normalizePath(file.path(R_DIR, ".."))
 
+source(file.path(R_DIR, "lib", "variants.R"))
 source(file.path(R_DIR, "lib", "load_data.R"))
 source(file.path(R_DIR, "lib", "model.R"))
 source(file.path(R_DIR, "lib", "plots.R"))
@@ -63,9 +64,9 @@ split_country_variant <- function(sheet_name) {
     variant <- sub(".*\\(([^)]+)\\).*", "\\1", sheet_name)
   } else {
     country <- sheet_name
-    variant <- "Whole"
+    variant <- DEFAULT_VARIANT
   }
-  list(country = country, variant = variant)
+  list(country = country, variant = normalize_variant(variant))
 }
 
 # Choose a filename slug for PNGs: lowercase, no spaces, variant suffix
@@ -73,7 +74,7 @@ split_country_variant <- function(sheet_name) {
 # uses so e.g. "Türkiye" → "tuerkiye" (matches the legacy filenames).
 country_filename_slug <- function(country, variant) {
   base <- country_to_flag_slug(country)
-  if (variant == "Whole") base else paste0(base, "_", tolower(gsub("\\s+", "_", variant)))
+  if (is_default_variant(variant)) base else paste0(base, "_", variant_slug_suffix(variant))
 }
 
 # Run the full pipeline for one sheet. Exposed so run_all.R can drive it
@@ -83,7 +84,7 @@ process_sheet <- function(sheet_name, repo_dir = REPO_DIR) {
   country <- cv$country
   variant <- cv$variant
 
-  display_label <- if (variant == "Whole") country else paste0(country, " (", variant, ")")
+  display_label <- display_market_label(country, variant)
 
   message("Country: ", country, " | variant: ", variant, " | sheet: ", sheet_name)
 
@@ -97,7 +98,7 @@ process_sheet <- function(sheet_name, repo_dir = REPO_DIR) {
   verschiebung <- floor(min(na.omit(data$year)))
   data <- subset(data, data$year >= verschiebung)
 
-  # Drop rows whose computed shares are NA / non-finite. Denmark Whole has
+  # Drop rows whose computed shares are NA / non-finite. Denmark's default market has
   # 3 such rows from missing TOTAL values; NewZealand (HDV) has ~22. With
   # them in place optim refuses to evaluate the starting parameters and
   # blows up early. The legacy per-country scripts never hit this because

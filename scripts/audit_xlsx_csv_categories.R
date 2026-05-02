@@ -11,9 +11,20 @@ suppressPackageStartupMessages({
   library(dplyr)
 })
 
+script_dir <- function() {
+  args0 <- commandArgs(trailingOnly = FALSE)
+  file_arg <- grep("^--file=", args0, value = TRUE)
+  if (length(file_arg) == 1) {
+    return(normalizePath(dirname(sub("^--file=", "", file_arg))))
+  }
+  normalizePath(".")
+}
+
+repo_dir <- normalizePath(file.path(script_dir(), ".."))
+
 args <- commandArgs(trailingOnly = TRUE)
-xlsx <- if (length(args) >= 1) args[[1]] else file.path("data", "raw", "bev_share_acea.xlsx")
-market_dir <- if (length(args) >= 2) args[[2]] else file.path("data", "markets")
+xlsx <- if (length(args) >= 1) args[[1]] else file.path(repo_dir, "data", "raw", "bev_share_acea.xlsx")
+market_dir <- if (length(args) >= 2) args[[2]] else file.path(repo_dir, "data", "markets")
 
 if (!file.exists(xlsx)) {
   stop("XLSX not found: ", xlsx, call. = FALSE)
@@ -21,6 +32,8 @@ if (!file.exists(xlsx)) {
 if (!dir.exists(market_dir)) {
   stop("Market CSV directory not found: ", market_dir, call. = FALSE)
 }
+
+source(file.path(repo_dir, "R", "lib", "variants.R"))
 
 SKIP_SHEETS <- c(
   "Europeanunion", "Netherlands_HDV(old)", "NewZealand (Legacy)",
@@ -47,12 +60,15 @@ country_to_slug <- function(country) {
 parse_sheet_name <- function(sheet) {
   if (grepl("\\(", sheet)) {
     country <- trimws(sub("\\s*\\(.*\\)\\s*", "", sheet))
-    variant <- sub(".*\\(([^)]+)\\).*", "\\1", sheet)
-    slug <- paste0(country_to_slug(country), "_",
-                   tolower(gsub("\\s+", "_", variant)))
+    variant <- normalize_variant(sub(".*\\(([^)]+)\\).*", "\\1", sheet))
+    slug <- if (is_default_variant(variant)) {
+      country_to_slug(country)
+    } else {
+      paste0(country_to_slug(country), "_", variant_slug_suffix(variant))
+    }
   } else {
     country <- sheet
-    variant <- "Whole"
+    variant <- DEFAULT_VARIANT
     slug <- country_to_slug(country)
   }
   list(country = country, variant = variant, slug = slug)
