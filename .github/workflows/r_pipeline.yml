@@ -22,7 +22,6 @@ on:
   push:
     paths:
       - "data/markets/**.csv"
-      - ".github/workflows/r_pipeline.yml"
 
 permissions:
   contents: write   # only used when commit_outputs == "true"
@@ -60,6 +59,12 @@ jobs:
             any::viridis
             any::png
             any::glue
+            any::jsonlite
+            any::stringr
+            any::lubridate
+            any::purrr
+            any::fs
+            any::tibble
             any::readr
             any::stringi
             any::countrycode
@@ -78,6 +83,10 @@ jobs:
             IFS=',' read -ra SHEET_ARR <<< "$SHEETS"
             Rscript R/run_all.R --skip-fail "${SHEET_ARR[@]}"
           fi
+
+      - name: Build manifest
+        run: |
+          Rscript -e "source('build_manifest.R'); build_manifest(root='images', base_url='images/')"
 
       - name: Show changed files
         run: git status --short
