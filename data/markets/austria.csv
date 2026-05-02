@@ -1051,3 +1051,10 @@ period,interval,year,category,registrations,source
 2026M03,monthly,2025.166667,PETROL,8181,Statistik Austria
 2026M03,monthly,2025.166667,PHEV,3165,Statistik Austria
 2026M03,monthly,2025.166667,TOTAL,33018,Statistik Austria
+2026M04,monthly,2025.25,BEV,6500,Gallery-TEST smoke test
+2026M04,monthly,2025.25,PHEV,3200,Gallery-TEST smoke test
+2026M04,monthly,2025.25,HEV,9300,Gallery-TEST smoke test
+2026M04,monthly,2025.25,PETROL,7600,Gallery-TEST smoke test
+2026M04,monthly,2025.25,DIESEL,2500,Gallery-TEST smoke test
+2026M04,monthly,2025.25,OTHER,0,Gallery-TEST smoke test
+2026M04,monthly,2025.25,TOTAL,29100,Gallery-TEST smoke test

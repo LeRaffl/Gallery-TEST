@@ -75,6 +75,7 @@ load_country_data <- function(data_root, sheet_name) {
   long <- suppressMessages(read_csv(csv_path, show_col_types = FALSE,
                                     progress = FALSE))
   if (nrow(long) == 0) stop("CSV is empty: ", csv_path)
+  long <- validate_market_rows(long, csv_path)
 
   raw <- pivot_to_wide(long)
   flags <- detect_schema_flags(raw)
@@ -83,6 +84,33 @@ load_country_data <- function(data_root, sheet_name) {
 
   list(data = df, flags = flags, sheet_name = sheet_name,
        slug = slug, source = pull_source(df), csv_path = csv_path)
+}
+
+validate_market_rows <- function(long, csv_path) {
+  required <- c("period", "interval", "year", "category", "registrations", "source")
+  missing <- setdiff(required, names(long))
+  if (length(missing)) {
+    stop("CSV missing required column(s) in ", csv_path, ": ",
+         paste(missing, collapse = ", "))
+  }
+
+  long <- as.data.frame(long, check.names = FALSE)
+  long$interval <- tolower(trimws(as.character(long$interval)))
+  long$interval[is.na(long$interval)] <- ""
+
+  valid_intervals <- c("monthly", "quarterly", "yearly")
+  bad <- !nzchar(long$interval) | !(long$interval %in% valid_intervals)
+  if (any(bad)) {
+    bad_period <- long$period[which(bad)[1]]
+    bad_value <- long$interval[which(bad)[1]]
+    if (!nzchar(bad_value)) bad_value <- "(blank)"
+    stop("CSV has ", sum(bad), " row(s) with missing/invalid interval in ",
+         csv_path, ". First bad period: ", bad_period,
+         " with interval ", bad_value,
+         ". Expected one of: ", paste(valid_intervals, collapse = ", "))
+  }
+
+  long
 }
 
 # Long → wide pivot, recreating the column set the legacy XLSX shipped.

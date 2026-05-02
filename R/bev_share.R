@@ -175,7 +175,8 @@ process_sheet <- function(sheet_name, repo_dir = REPO_DIR) {
   # raw.githubusercontent.com.
   posts_dir <- file.path(repo_dir, "posts")
   dir.create(posts_dir, recursive = TRUE, showWarnings = FALSE)
-  post_text <- build_post_text(country, variant, data, flags)
+  post_text <- build_post_text(country, variant, data, flags,
+                               gallery_url = default_gallery_url(repo_dir))
   post_path <- file.path(posts_dir, paste0(slug, "_", date_tag, ".txt"))
   writeLines(post_text, post_path)
   cat("\n", post_text, "\n", sep = "")

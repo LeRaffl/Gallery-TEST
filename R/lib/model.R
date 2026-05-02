@@ -42,15 +42,27 @@ fit_country <- function(data, verschiebung, extrapol = 2200, confidence_level = 
   RSS <- function(v, type = "BEV") {
     forecast  <- reg(v, BEV$x, type)
     residuals <- BEV$y - forecast
-    sum((residuals * data$overall)^2)
+    sum((residuals * BEV$overall)^2)
   }
   RSS_ice <- function(v, type = "ICE") {
     forecast  <- reg_ice(v, ICE$x, type)
     residuals <- ICE$y - forecast
-    sum((residuals * data$overall)^2)
+    sum((residuals * ICE$overall)^2)
   }
 
   res <- res_ice <- B <- austria <- new_A <- BEV <- ICE <- Hybrid <- NULL
+
+  max_in_band <- function(df, col, lo, hi) {
+    vals <- df$x[df[[col]] <= hi & df[[col]] >= lo]
+    if (!length(vals)) return(NA_real_)
+    max(vals)
+  }
+
+  span_in_band <- function(df, col, lo, hi) {
+    vals <- df$x[df[[col]] <= hi & df[[col]] >= lo]
+    if (!length(vals)) return(NA_real_)
+    max(vals) - min(vals)
+  }
 
   yearly_subset <- subset(data, !is.na(data$time_interval) & data$time_interval == "yearly")
   lastyearly <- if (nrow(yearly_subset) > 0) ceiling(max(yearly_subset$year)) else -Inf
@@ -60,7 +72,7 @@ fit_country <- function(data, verschiebung, extrapol = 2200, confidence_level = 
 
     xg <- looped$year
     yg <- as.double(looped$bev_share)
-    BEV <- data.frame(x = xg, y = yg)
+    BEV <- data.frame(x = xg, y = yg, overall = looped$overall)
     res <- optim(par = c(-0.1, 4), fn = RSS, control = control)
 
     xg <- seq(verschiebung, extrapol, by = 1/12)
@@ -78,7 +90,7 @@ fit_country <- function(data, verschiebung, extrapol = 2200, confidence_level = 
 
     xg <- looped$year
     yg <- as.double(looped$ice_share)
-    ICE <- data.frame(x = xg, y = yg)
+    ICE <- data.frame(x = xg, y = yg, overall = looped$overall)
     res_ice <- optim(par = c(-0.1, 4), fn = RSS_ice, control = control)
 
     xg <- seq(verschiebung, extrapol, by = 1/12)
@@ -110,23 +122,19 @@ fit_country <- function(data, verschiebung, extrapol = 2200, confidence_level = 
     austria$Hybrid_upper <- pmax(austria$Hybrid_upper, 0)
     austria$Hybrid_lower <- pmax(austria$Hybrid_lower, 0)
 
-    time_20_to_80 <- max(subset(austria, austria$BEV <= 0.8 & austria$BEV >= 0.2)$x) -
-                     min(subset(austria, austria$BEV <= 0.8 & austria$BEV >= 0.2)$x)
-    time_80_to_20 <- max(subset(austria, austria$ICE <= 0.8 & austria$ICE >= 0.2)$x) -
-                     min(subset(austria, austria$ICE <= 0.8 & austria$ICE >= 0.2)$x)
+    time_20_to_80 <- span_in_band(austria, "BEV", 0.2, 0.8)
+    time_80_to_20 <- span_in_band(austria, "ICE", 0.2, 0.8)
 
     bev_time[i] <- time_20_to_80
     ice_time[i] <- time_80_to_20
   }
 
   # Final-iteration thresholds
-  time_80 <- max(subset(austria, austria$BEV <= 0.8 & austria$BEV >= 0.2)$x)
-  time_50 <- max(subset(austria, austria$BEV <= 0.5 & austria$BEV >= 0.2)$x)
-  time_20 <- max(subset(austria, austria$BEV <= 0.2 & austria$BEV >= 0.1)$x)
-  time_20_to_80 <- max(subset(austria, austria$BEV <= 0.8 & austria$BEV >= 0.2)$x) -
-                   min(subset(austria, austria$BEV <= 0.8 & austria$BEV >= 0.2)$x)
-  time_80_to_20 <- max(subset(austria, austria$ICE <= 0.8 & austria$ICE >= 0.2)$x) -
-                   min(subset(austria, austria$ICE <= 0.8 & austria$ICE >= 0.2)$x)
+  time_80 <- max_in_band(austria, "BEV", 0.2, 0.8)
+  time_50 <- max_in_band(austria, "BEV", 0.2, 0.5)
+  time_20 <- max_in_band(austria, "BEV", 0.1, 0.2)
+  time_20_to_80 <- span_in_band(austria, "BEV", 0.2, 0.8)
+  time_80_to_20 <- span_in_band(austria, "ICE", 0.2, 0.8)
 
   list(
     res            = res,

@@ -197,6 +197,21 @@ post_block_ttm <- function(t, flags) {
 }
 
 # Assemble the full post text for one country/variant.
+default_gallery_url <- function(repo_dir = NULL) {
+  env_url <- Sys.getenv("GALLERY_URL", unset = "")
+  if (nzchar(env_url)) return(env_url)
+
+  repo_name <- if (!is.null(repo_dir)) {
+    basename(normalizePath(repo_dir, mustWork = FALSE))
+  } else {
+    ""
+  }
+  if (identical(repo_name, "Gallery-TEST")) {
+    return("leraffl.github.io/Gallery-TEST/")
+  }
+  "leraffl.github.io/LeRaffl-Gallery/"
+}
+
 build_post_text <- function(country, variant, data, flags,
                             gallery_url = "leraffl.github.io/LeRaffl-Gallery/") {
   flag <- country_to_flag_emoji(country)

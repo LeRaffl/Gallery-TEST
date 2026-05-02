@@ -93,11 +93,31 @@
     },
     {
       "country": "Austria",
+      "type": "ICE_BEV",
+      "period": "2026-04",
+      "date": "2026-05-02",
+      "filename": "austria_ICE_BEV_20260502.png",
+      "url": "images/2026-04/austria_ICE_BEV_20260502.png",
+      "alt": "Austria ICE-BEV-Hybrid trajectory",
+      "country_slug": "austria"
+    },
+    {
+      "country": "Austria",
       "type": "share",
       "period": "2026-03",
       "date": "2026-05-02",
       "filename": "austria_20260502.png",
       "url": "images/2026-03/austria_20260502.png",
+      "alt": "Austria BEV trajectory",
+      "country_slug": "austria"
+    },
+    {
+      "country": "Austria",
+      "type": "share",
+      "period": "2026-04",
+      "date": "2026-05-02",
+      "filename": "austria_20260502.png",
+      "url": "images/2026-04/austria_20260502.png",
       "alt": "Austria BEV trajectory",
       "country_slug": "austria"
     },
@@ -113,11 +133,31 @@
     },
     {
       "country": "Austria",
+      "type": "time",
+      "period": "2026-04",
+      "date": "2026-05-02",
+      "filename": "austria_time_20260502.png",
+      "url": "images/2026-04/austria_time_20260502.png",
+      "alt": "Austria Transition time curve",
+      "country_slug": "austria"
+    },
+    {
+      "country": "Austria",
       "type": "ttm_shares",
       "period": "2026-03",
       "date": "2026-05-02",
       "filename": "austria_ttm_shares_20260502.png",
       "url": "images/2026-03/austria_ttm_shares_20260502.png",
+      "alt": "Austria TTM market split graph",
+      "country_slug": "austria"
+    },
+    {
+      "country": "Austria",
+      "type": "ttm_shares",
+      "period": "2026-04",
+      "date": "2026-05-02",
+      "filename": "austria_ttm_shares_20260502.png",
+      "url": "images/2026-04/austria_ttm_shares_20260502.png",
       "alt": "Austria TTM market split graph",
       "country_slug": "austria"
     },
@@ -493,11 +533,31 @@
     },
     {
       "country": "Denmark",
+      "type": "ICE_BEV",
+      "period": "2025-09",
+      "date": "2026-05-02",
+      "filename": "denmark_ICE_BEV_20260502.png",
+      "url": "images/2025-09/denmark_ICE_BEV_20260502.png",
+      "alt": "Denmark ICE-BEV-Hybrid trajectory",
+      "country_slug": "denmark"
+    },
+    {
+      "country": "Denmark",
       "type": "share",
       "period": "2022-12",
       "date": "2026-05-02",
       "filename": "denmark_20260502.png",
       "url": "images/2022-12/denmark_20260502.png",
+      "alt": "Denmark BEV trajectory",
+      "country_slug": "denmark"
+    },
+    {
+      "country": "Denmark",
+      "type": "share",
+      "period": "2025-09",
+      "date": "2026-05-02",
+      "filename": "denmark_20260502.png",
+      "url": "images/2025-09/denmark_20260502.png",
       "alt": "Denmark BEV trajectory",
       "country_slug": "denmark"
     },
@@ -513,11 +573,31 @@
     },
     {
       "country": "Denmark",
+      "type": "time",
+      "period": "2025-09",
+      "date": "2026-05-02",
+      "filename": "denmark_time_20260502.png",
+      "url": "images/2025-09/denmark_time_20260502.png",
+      "alt": "Denmark Transition time curve",
+      "country_slug": "denmark"
+    },
+    {
+      "country": "Denmark",
       "type": "ttm_shares",
       "period": "2022-12",
       "date": "2026-05-02",
       "filename": "denmark_ttm_shares_20260502.png",
       "url": "images/2022-12/denmark_ttm_shares_20260502.png",
+      "alt": "Denmark TTM market split graph",
+      "country_slug": "denmark"
+    },
+    {
+      "country": "Denmark",
+      "type": "ttm_shares",
+      "period": "2025-09",
+      "date": "2026-05-02",
+      "filename": "denmark_ttm_shares_20260502.png",
+      "url": "images/2025-09/denmark_ttm_shares_20260502.png",
       "alt": "Denmark TTM market split graph",
       "country_slug": "denmark"
     },
@@ -1413,11 +1493,31 @@
     },
     {
       "country": "Malta",
+      "type": "ICE_BEV",
+      "period": "2026-03",
+      "date": "2026-05-02",
+      "filename": "malta_ICE_BEV_20260502.png",
+      "url": "images/2026-03/malta_ICE_BEV_20260502.png",
+      "alt": "Malta ICE-BEV-Hybrid trajectory",
+      "country_slug": "malta"
+    },
+    {
+      "country": "Malta",
       "type": "share",
       "period": "2025-05",
       "date": "2026-05-02",
       "filename": "malta_20260502.png",
       "url": "images/2025-05/malta_20260502.png",
+      "alt": "Malta BEV trajectory",
+      "country_slug": "malta"
+    },
+    {
+      "country": "Malta",
+      "type": "share",
+      "period": "2026-03",
+      "date": "2026-05-02",
+      "filename": "malta_20260502.png",
+      "url": "images/2026-03/malta_20260502.png",
       "alt": "Malta BEV trajectory",
       "country_slug": "malta"
     },
@@ -1433,11 +1533,31 @@
     },
     {
       "country": "Malta",
+      "type": "time",
+      "period": "2026-03",
+      "date": "2026-05-02",
+      "filename": "malta_time_20260502.png",
+      "url": "images/2026-03/malta_time_20260502.png",
+      "alt": "Malta Transition time curve",
+      "country_slug": "malta"
+    },
+    {
+      "country": "Malta",
       "type": "ttm_shares",
       "period": "2025-05",
       "date": "2026-05-02",
       "filename": "malta_ttm_shares_20260502.png",
       "url": "images/2025-05/malta_ttm_shares_20260502.png",
+      "alt": "Malta TTM market split graph",
+      "country_slug": "malta"
+    },
+    {
+      "country": "Malta",
+      "type": "ttm_shares",
+      "period": "2026-03",
+      "date": "2026-05-02",
+      "filename": "malta_ttm_shares_20260502.png",
+      "url": "images/2026-03/malta_ttm_shares_20260502.png",
       "alt": "Malta TTM market split graph",
       "country_slug": "malta"
     },
@@ -3602,46 +3722,6 @@
       "country_slug": "ireland"
     },
     {
-      "country": "Italy",
-      "type": "ICE_BEV",
-      "period": "2026-03",
-      "date": "2026-05-01",
-      "filename": "italy_ICE_BEV_20260501.png",
-      "url": "images/2026-03/italy_ICE_BEV_20260501.png",
-      "alt": "Italy ICE-BEV-Hybrid trajectory",
-      "country_slug": "italy"
-    },
-    {
-      "country": "Italy",
-      "type": "share",
-      "period": "2026-03",
-      "date": "2026-05-01",
-      "filename": "italy_20260501.png",
-      "url": "images/2026-03/italy_20260501.png",
-      "alt": "Italy BEV trajectory",
-      "country_slug": "italy"
-    },
-    {
-      "country": "Italy",
-      "type": "time",
-      "period": "2026-03",
-      "date": "2026-05-01",
-      "filename": "italy_time_20260501.png",
-      "url": "images/2026-03/italy_time_20260501.png",
-      "alt": "Italy Transition time curve",
-      "country_slug": "italy"
-    },
-    {
-      "country": "Italy",
-      "type": "ttm_shares",
-      "period": "2026-03",
-      "date": "2026-05-01",
-      "filename": "italy_ttm_shares_20260501.png",
-      "url": "images/2026-03/italy_ttm_shares_20260501.png",
-      "alt": "Italy TTM market split graph",
-      "country_slug": "italy"
-    },
-    {
       "country": "Japan",
       "type": "ICE_BEV",
       "period": "2026-03",
@@ -5270,46 +5350,6 @@
       "url": "images/2026-03/newzealand_legacy_ttm_shares_20260406.png",
       "alt": "New Zealand (Legacy) TTM market split graph",
       "country_slug": "newzealand_legacy"
-    },
-    {
-      "country": "Italy",
-      "type": "ICE_BEV",
-      "period": "2026-03",
-      "date": "2026-04-03",
-      "filename": "italy_ICE_BEV_20260403.png",
-      "url": "images/2026-03/italy_ICE_BEV_20260403.png",
-      "alt": "Italy ICE-BEV-Hybrid trajectory",
-      "country_slug": "italy"
-    },
-    {
-      "country": "Italy",
-      "type": "share",
-      "period": "2026-03",
-      "date": "2026-04-03",
-      "filename": "italy_20260403.png",
-      "url": "images/2026-03/italy_20260403.png",
-      "alt": "Italy BEV trajectory",
-      "country_slug": "italy"
-    },
-    {
-      "country": "Italy",
-      "type": "time",
-      "period": "2026-03",
-      "date": "2026-04-03",
-      "filename": "italy_time_20260403.png",
-      "url": "images/2026-03/italy_time_20260403.png",
-      "alt": "Italy Transition time curve",
-      "country_slug": "italy"
-    },
-    {
-      "country": "Italy",
-      "type": "ttm_shares",
-      "period": "2026-03",
-      "date": "2026-04-03",
-      "filename": "italy_ttm_shares_20260403.png",
-      "url": "images/2026-03/italy_ttm_shares_20260403.png",
-      "alt": "Italy TTM market split graph",
-      "country_slug": "italy"
     },
     {
       "country": "Ireland",

@@ -595,6 +595,7 @@ section.tab .container > h2 { margin: 6px 0 12px; }
 .fb-pill.cat-question {background:rgba(80,160,255,0.18); color:#b3d4ff}
 .fb-pill.cat-idea     {background:rgba(220,180,60,0.18); color:#ffe29a}
 .fb-pill.cat-data     {background:rgba(255,140,60,0.20); color:#ffcfa3}
+.fb-pill.cat-submission{background:rgba(70,190,140,0.18); color:#9be7c4}
 .fb-pill.cat-comment  {background:rgba(180,180,180,0.18);color:#d6d6d6}
 .fb-pill.status-open     {background:#1a3a5c;color:#7cc4ff}
 .fb-pill.status-answered {background:#1a4a2c;color:#8fe5a8}
@@ -778,6 +779,7 @@ h2 .fb-ctx-btn{width:30px;height:30px;font-size:16px;opacity:.6}
       <span class="fb-chip"        data-filter="cat"    data-value="bug">🐛 Bug</span>
       <span class="fb-chip"        data-filter="cat"    data-value="question">❓ Question</span>
       <span class="fb-chip"        data-filter="cat"    data-value="idea">💡 Idea</span>
+      <span class="fb-chip"        data-filter="cat"    data-value="submission">📊 Data submission</span>
       <span class="fb-chip"        data-filter="cat"    data-value="data">⚠️ Data error</span>
       <span class="fb-chip"        data-filter="cat"    data-value="comment">💬 Comment</span>
       <span style="width:1px;background:#1f2a44;margin:0 4px"></span>
@@ -883,6 +885,7 @@ h2 .fb-ctx-btn{width:30px;height:30px;font-size:16px;opacity:.6}
       <div class="fb-catpicker" id="fbCatPicker">
         <label><input type="radio" name="category" value="question" checked><span class="cat-icon">❓</span>Question</label>
         <label><input type="radio" name="category" value="bug"><span class="cat-icon">🐛</span>Bug</label>
+        <label><input type="radio" name="category" value="submission"><span class="cat-icon">📊</span>Data submission</label>
         <label><input type="radio" name="category" value="data"><span class="cat-icon">⚠️</span>Data error</label>
         <label><input type="radio" name="category" value="idea"><span class="cat-icon">💡</span>Idea</label>
         <label><input type="radio" name="category" value="comment"><span class="cat-icon">💬</span>Comment</label>
@@ -5270,6 +5273,7 @@ const FB_CATS = {
   bug:      { icon: '🐛', label: 'Bug' },
   question: { icon: '❓', label: 'Question' },
   idea:     { icon: '💡', label: 'Idea' },
+  submission: { icon: '📊', label: 'Data submission' },
   data:     { icon: '⚠️', label: 'Data error' },
   comment:  { icon: '💬', label: 'Comment' }
 };
@@ -6054,7 +6058,7 @@ ${built.notes || '(none)'}
 Validation notes:
 ${built.warnings.length ? built.warnings.map(w => `- ${w}`).join('\n') : '- No client-side warnings.'}`;
   fbOpenModal({
-    category: 'data',
+    category: 'submission',
     title,
     body,
     context: {

@@ -14,6 +14,18 @@ suppressPackageStartupMessages({
   library(png)
 })
 
+scaled_point_size <- function(overall, default_size = 2, min_size = 0.4) {
+  values <- as.numeric(overall)
+  spread <- sd(values, na.rm = TRUE)
+  if (!is.finite(spread) || spread == 0) {
+    return(rep(default_size, length(values)))
+  }
+
+  sizes <- default_size + (values - mean(values, na.rm = TRUE)) / spread
+  sizes[!is.finite(sizes)] <- default_size
+  pmax(min_size, sizes)
+}
+
 # Build the trailing-12-months stacked bar plot. The column composition
 # adapts to the schema flags so countries with combined HYBRIDS (Türkiye),
 # China-style EREV, single-ICE columns, etc. all render correctly.
@@ -158,7 +170,7 @@ build_ttm_plot <- function(data, flags, country_label, caption) {
     theme(axis.text.x = element_text(angle = 45, hjust = 1), axis.title.x = element_blank(),
           plot.title = element_text(size = 14, face = "bold"),
           legend.position = c(0.05, 0.95), legend.justification = c(0, 1),
-          legend.background = element_rect(fill = "white", color = "gray90", size = 0.5),
+          legend.background = element_rect(fill = "white", color = "gray90", linewidth = 0.5),
           legend.key = element_rect(fill = NA, color = NA), legend.key.height = unit(0.2, "cm"),
           plot.caption = element_markdown(hjust = 0))
 }
@@ -193,6 +205,7 @@ build_timer_plot <- function(fit_result, country_label, caption, flag_img) {
   }
 
   data_month <- (as.integer(((fit_result$bev_obs$x %% 1) * 12 + 1)[length(fit_result$bev_obs$x)]) + 1) %% 12
+  y_limit <- max(c(timer$BEV_time, timer$ICE_time), na.rm = TRUE) * 1.05
 
   theme_set(theme_minimal(base_size = 14))
 
@@ -205,7 +218,7 @@ build_timer_plot <- function(fit_result, country_label, caption, flag_img) {
     ) +
     scale_y_continuous(
       name = "Number of years expected",
-      limits = c(0, timer$BEV_time[length(timer$BEV_time)] * 2)
+      limits = c(0, y_limit)
     ) +
     labs(
       title = paste0("Time expectation for ", country_label, " transition time using historical data"),
@@ -258,15 +271,17 @@ build_bev_trajectory_plot <- function(fit_result, country_label, caption,
 
   theme_set(theme_minimal(base_size = 14))
 
+  x_limits <- c(2010, min(extrapol, 2045))
+
   p <- ggplot(fit, aes(x = x, y = BEV, color = Type)) +
     geom_ribbon(aes(ymin = BEV_lower, ymax = BEV_upper), fill = "grey", alpha = 0.5, color = NA) +
-    geom_line(lwd = 1) + ylim(0, 1.1) +
+    geom_line(lwd = 1) +
     geom_point(data = new_A, aes(x = x, y = y, color = Quarter),
-               size = default_size + (new_A$overall - mean(new_A$overall)) / sd(new_A$overall)) +
+               size = scaled_point_size(new_A$overall, default_size)) +
     scale_x_continuous(breaks = seq(2010, extrapol, ifelse(extrapol > 2045, 4, 2)),
-                       labels = function(x) paste0("Jan ", x + 1),
-                       limits = c(2010, min(extrapol, 2045))) +
+                       labels = function(x) paste0("Jan ", x + 1)) +
     scale_y_continuous(breaks = seq(0, 1, 0.1), labels = unit_format(unit = "%", scale = 1e2)) +
+    coord_cartesian(xlim = x_limits, ylim = c(0, 1.1)) +
     labs(title    = paste0("BEV share in new registrations in ", country_label, " - an Extrapolation"),
          subtitle = paste0("expected time for BEV to rise from 20% to 80%: ",
                            floor(t20_to_80), " years ",
@@ -306,7 +321,7 @@ build_bev_trajectory_plot <- function(fit_result, country_label, caption,
     p <- p + annotation_custom(
       grob = rasterGrob(as.raster(flag_img), interpolate = TRUE,
                         width = unit(1 * 1920 / 1280, "in"), height = unit(1, "in")),
-      xmin = min(extrapol - 4, 2045 - 4), ymin = -0.9
+      xmin = x_limits[2] - 4, ymin = -0.9
     )
   }
 
@@ -326,27 +341,27 @@ build_ice_bev_plot <- function(data, fit_result, country_label, caption, entire_
   ICE_obs$overall <- data$overall
   BEV$overall     <- data$overall
   Hybrid$overall  <- data$overall
+  phev_points <- data[is.finite(data$hybrid_share) & is.finite(data$year), , drop = FALSE]
 
   theme_set(theme_minimal(base_size = 14))
 
+  x_limits <- c(2010, min(extrapol, 2045))
+
   p <- ggplot(fit, aes(x = x, y = BEV, color = Type)) +
     geom_ribbon(aes(ymin = BEV_lower, ymax = BEV_upper), fill = "green", alpha = 0.5, color = NA) +
-    geom_line(aes(y = BEV, color = "BEV", shape = "BEV"), lwd = 1) +
+    geom_line(aes(y = BEV, color = "BEV"), lwd = 1) +
     geom_point(data = BEV, aes(x = x, y = y, color = "BEV", shape = "BEV"),
-               size = default_size + (BEV$overall - mean(BEV$overall)) / sd(BEV$overall)) +
+               size = scaled_point_size(BEV$overall, default_size)) +
     geom_ribbon(aes(ymin = ICE_lower, ymax = ICE_upper), fill = "red", alpha = 0.5, color = NA) +
-    geom_line(aes(y = ICE, color = "ICE", shape = "ICE"), lwd = 1) +
+    geom_line(aes(y = ICE, color = "ICE"), lwd = 1) +
     geom_point(data = ICE_obs, aes(x = x, y = y, color = "ICE", shape = "ICE"),
-               size = default_size + (ICE_obs$overall - mean(ICE_obs$overall)) / sd(ICE_obs$overall)) +
+               size = scaled_point_size(ICE_obs$overall, default_size)) +
     geom_ribbon(aes(ymin = Hybrid_lower, ymax = Hybrid_upper), fill = "blue", alpha = 0.5, color = NA) +
-    geom_line(aes(y = Hybrid, color = "PHEV", shape = "PHEV"), lwd = 1) +
-    geom_point(data = data, aes(x = year, y = hybrid_share, color = "PHEV", shape = "PHEV"),
-               size = default_size + (Hybrid$overall - mean(Hybrid$overall)) / sd(Hybrid$overall)) +
-    ylim(0, 1.1) +
+    geom_line(aes(y = Hybrid, color = "PHEV"), lwd = 1) +
     scale_x_continuous(breaks = seq(2006, extrapol, ifelse(extrapol > 2045, 4, 2)),
-                       labels = function(x) paste0("Jan ", x + 1),
-                       limits = c(2010, min(extrapol, 2045))) +
+                       labels = function(x) paste0("Jan ", x + 1)) +
     scale_y_continuous(breaks = seq(0, 1, 0.1), labels = unit_format(unit = "%", scale = 1e2)) +
+    coord_cartesian(xlim = x_limits, ylim = c(0, 1.1)) +
     labs(title    = paste0("BEV / ICE / PHEV share of new registrations in ", country_label, " - an Extrapolation"),
          subtitle = paste0("expected time for ICE to drop from 80% to 20%: ",
                            floor(t80_20), " years ",
@@ -367,6 +382,12 @@ build_ice_bev_plot <- function(data, fit_result, country_label, caption, entire_
                        values = c("ICE" = "red", "BEV" = "green", "PHEV" = "blue")) +
     scale_shape_manual(name = "Legend", breaks = c("ICE", "BEV", "PHEV"),
                        values = c("ICE" = 15, "BEV" = 16, "PHEV" = 23))
+
+  if (nrow(phev_points) > 0) {
+    p <- p + geom_point(data = phev_points,
+                        aes(x = year, y = hybrid_share, color = "PHEV", shape = "PHEV"),
+                        size = scaled_point_size(phev_points$overall, default_size))
+  }
 
   p <- p + annotate("text", x = 2010, y = 0.9, label = "New ICE in",
                     size = rel(6), hjust = 0, vjust = 1, col = "red")
@@ -390,7 +411,7 @@ build_ice_bev_plot <- function(data, fit_result, country_label, caption, entire_
     p <- p + annotation_custom(
       grob = rasterGrob(as.raster(flag_img), interpolate = TRUE,
                         width = unit(1.5, "in"), height = unit(1, "in")),
-      xmin = min(extrapol - 4, 2045 - 4), ymin = -0.9
+      xmin = x_limits[2] - 4, ymin = -0.9
     )
   }
 
