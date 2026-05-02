@@ -45,6 +45,7 @@ from typing import Dict, List, Optional
 
 import pdfplumber
 import requests
+from requests import HTTPError
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -110,6 +111,10 @@ PDF_COLUMNS = ["BEV", "PHEV", "HEV", "OTHER", "PETROL", "DIESEL", "TOTAL"]
 NO_DATA_MARKERS = {"ꟷ", "—", "–", "-", ""}
 
 
+class PdfUnavailableError(RuntimeError):
+    """Raised when the expected ACEA source PDF does not exist yet."""
+
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -119,6 +124,8 @@ def parse_args() -> argparse.Namespace:
                    help="local PDF path (skip the URL fetch)")
     p.add_argument("--url", type=str, default=None,
                    help="explicit PDF URL (overrides ACEA_URL_TEMPLATE)")
+    p.add_argument("--missing-ok", action="store_true",
+                   help="exit successfully when the source PDF is not yet available")
     p.add_argument("--include", type=str, default=None,
                    help="comma-separated slug list to upsert (default: pure-ACEA markets)")
     p.add_argument("--exclude", type=str, default="",
@@ -133,7 +140,16 @@ def parse_args() -> argparse.Namespace:
 def fetch_pdf(url: str) -> bytes:
     print(f"[fetch] {url}")
     r = requests.get(url, timeout=60)
-    r.raise_for_status()
+    try:
+        r.raise_for_status()
+    except HTTPError as exc:
+        if r.status_code == 404:
+            raise PdfUnavailableError(
+                f"ACEA PDF not found at {url}. The requested period may not "
+                "have been published yet; pass --url or --pdf when using a "
+                "different source."
+            ) from exc
+        raise
     return r.content
 
 
@@ -284,7 +300,14 @@ def main() -> int:
             month_name=calendar.month_name[args.month],
             year=args.year,
         )
-        pdf_source = fetch_pdf(url)
+        try:
+            pdf_source = fetch_pdf(url)
+        except PdfUnavailableError as exc:
+            if args.missing_ok:
+                print(f"[skip] {exc}")
+                print("\nDone. 0 CSV(s) updated.")
+                return 0
+            sys.exit(str(exc))
 
     rows = extract_market_rows(pdf_source)
     print(f"[parse] recognised {len(rows)} market rows in the PDF table")
