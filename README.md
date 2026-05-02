@@ -1,20 +1,43 @@
-# BEV Trajectories — Files you need
+# BEV Trajectories — Gallery-TEST
 
-Put these into your repo root:
+Development/staging counterpart to `LeRaffl-Gallery`.
 
-- `index.html` — the gallery UI (EN)
-- `build_manifest.R` — generates `manifest.json` by scanning `images/YYYY-MM/`
-- `images/` — create monthly subfolders like `images/2025-07/` and put charts there
-- `.nojekyll` — optional file to disable Jekyll on GitHub Pages
+## What's in here
 
-## Usage
-1) Export your charts into `images/<YYYY-MM>/...png` (or `.webp`).
-2) In R:
-   ```r
-   source("build_manifest.R")
-   build_manifest(root = "images", base_url = "images/")
-   ```
-   This writes `manifest.json` next to `images/`.
-3) Commit & push. GitHub Pages will serve `index.html` and the gallery reads `manifest.json`.
+- `index.html` — the gallery UI (EN), Gallery / Thresholds / Durations tabs
+- `manifest.json` — auto-generated chart index (`build_manifest.R`)
+- `params.csv` / `weights.csv` — fitted model parameters per country/variant
+- `images/<YYYY-MM>/` — PNG charts, served statically
+- `data/raw/bev_share_acea.xlsx` — canonical raw registration data (one sheet per country)
+- `R/` — consolidated R pipeline. See `R/README.md`.
+- `legacy/` — archived per-country R + shell scripts (reference only, not maintained)
 
-The UI filters by **country**, **type**, **period** and has a **Latest only** toggle (shows only the newest per country+type when no month is selected).
+## Generating charts
+
+One country:
+
+```sh
+Rscript R/bev_share.R Austria
+Rscript R/bev_share.R "Denmark (HDV)"
+```
+
+All countries:
+
+```sh
+Rscript R/run_all.R --skip-fail
+```
+
+This regenerates the four charts per country/variant under `images/<YYYY-MM>/` and upserts the row in `params.csv` + `weights.csv`. The pipeline writes only to the working tree — committing is up to you (or to the GitHub Actions workflow at `.github/workflows/r_pipeline.yml`).
+
+## Refreshing manifest.json
+
+After new images land:
+
+```r
+source("build_manifest.R")
+build_manifest(root = "images", base_url = "images/")
+```
+
+## Hosting
+
+Commit & push. GitHub Pages serves `index.html`; the gallery reads `manifest.json`. The UI filters by **country**, **type**, **period** and has a **Latest only** toggle (shows only the newest per country+type when no month is selected).
