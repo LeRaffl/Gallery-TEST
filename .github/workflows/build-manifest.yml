@@ -5,6 +5,7 @@ on:
     paths:
       - 'images/**'                 # triggert bei neuen/gelöschten/verschobenen Dateien in images/
       - 'build_manifest.R'          # falls du den Builder änderst
+      - '.github/workflows/build-manifest.yml'
   workflow_dispatch: {}             # optional: manuell auslösbar
   schedule:
     - cron: '17 3 * * *'            # optional: einmal täglich als Fallback (03:17 UTC)
@@ -21,10 +22,20 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.5'
+          use-public-rspm: true
 
-      - name: Install R packages
-        run: |
-          Rscript -e "install.packages(c('jsonlite','stringr','dplyr','lubridate','purrr','fs'), repos='https://cloud.r-project.org')"
+      - name: Install R package dependencies
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::jsonlite
+            any::stringr
+            any::dplyr
+            any::lubridate
+            any::purrr
+            any::fs
 
       - name: Build manifest
         run: |
