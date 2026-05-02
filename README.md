@@ -30,6 +30,14 @@ the production gallery.
 | `.github/workflows/*.yml` | GitHub Actions automation |
 | `legacy/` | Archived old scripts, reference only |
 
+## GitHub Actions
+
+| Workflow | Trigger | What it does |
+| --- | --- | --- |
+| `ACEA scrape` | Manual `workflow_dispatch` | Downloads one monthly ACEA press-release PDF, extracts the by-market power-source table, and upserts ACEA-driven `data/markets/*.csv`. If the default ACEA PDF does not exist yet, the workflow exits successfully with no changes. Use `url` for an explicit PDF source. |
+| `R pipeline (BEV trajectories)` | Manual, or push to `data/markets/**.csv` | Runs `R/run_all.R`, rebuilds charts, `params.csv`, `weights.csv`, posts, and `manifest.json`. It commits outputs back only when requested manually or when triggered by a data-file push. |
+| `Build manifest` | Push to image/site inputs, or manual | Rebuilds `manifest.json` from generated images and commits it back if needed. |
+
 ## Data Format
 
 `data/markets/<slug>.csv` is the source of truth. Do not edit
@@ -133,6 +141,10 @@ Common categories:
   - `url`: optional explicit PDF URL
 - The scraper updates ACEA-driven `data/markets/*.csv`.
 - The R pipeline starts automatically after the CSV commit.
+- If ACEA has not published that month's default PDF yet, the workflow logs a
+  skip message and finishes green without committing anything.
+- Use the `url` input when ACEA changes the PDF path or when testing a known
+  release URL.
 
 Local equivalent:
 
@@ -140,6 +152,7 @@ Local equivalent:
 python scripts/scrape_acea.py 2026 03
 python scripts/scrape_acea.py 2026 03 --include france,germany
 python scripts/scrape_acea.py 2026 03 --dry-run
+python scripts/scrape_acea.py 2026 03 --missing-ok
 ```
 
 ### 4. Audit legacy XLSX categories
