@@ -50,6 +50,7 @@ R/
 - Single-ICE split: `ICE` instead of `PETROL`/`DIESEL`.
 - China-style split: `EREV` is rendered separately in TTM but folded into the PHEV-like trajectory line.
 - Combined-hybrid split: `HYBRIDS` replaces separate `HEV`/`PHEV`.
+- Source-specific split: categories such as `FLEXFUEL` and `PETROL-GAS` are kept in CSV data.
 - Residual ICE: if visible categories do not cover the total, the TTM stack can add a residual ICE layer.
 - Quarterly data uses four-quarter rolling TTM fallback.
 - Rows with non-finite BEV/ICE shares are dropped before fitting.

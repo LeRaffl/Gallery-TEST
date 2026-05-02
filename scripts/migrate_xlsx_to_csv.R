@@ -6,8 +6,8 @@
 #   period         "2025M08"           — same YYYYMMM string the XLSX uses
 #   interval       "monthly" | "quarterly" | "yearly"
 #   year           2025.667            — fractional year (kept for sorting)
-#   category       "BEV" | "PHEV" | "HEV" | "EREV" | "HYBRIDS"
-#                  | "PETROL" | "DIESEL" | "ICE" | "OTHER" | "TOTAL"
+#   category       uppercase fuel category, e.g. "BEV", "PHEV", "PETROL",
+#                  "DIESEL", "FLEXFUEL", "PETROL-GAS", "OTHER", "TOTAL"
 #   registrations  count               — integer (NA-cells skipped)
 #   source         "Statistik Austria" — copied from the source row
 #
@@ -75,15 +75,36 @@ parse_sheet_name <- function(sheet) {
   list(country = country, variant = variant, slug = slug)
 }
 
-# Categories we recognize in the source sheets. "OTHERS" is the column name
-# used in the XLSX; canonical name in CSV is "OTHER".
+# Categories we expect most often in the source sheets. "OTHERS" is the column
+# name used in the XLSX; canonical name in CSV is "OTHER". The migration also
+# detects extra fuel columns in the source category block so market-specific
+# categories like FLEXFUEL or PETROL-GAS do not get silently dropped.
 SOURCE_CATEGORIES <- c("BEV", "PHEV", "HEV", "EREV", "HYBRIDS",
-                       "PETROL", "DIESEL", "ICE", "OTHERS", "TOTAL")
+                       "PETROL", "DIESEL", "ICE", "FLEXFUEL",
+                       "PETROL-GAS", "FCEV", "CNG", "LPG", "MHEV",
+                       "OTHERS", "TOTAL")
 
 # Map source column name → canonical CSV category name.
 canon_category <- function(name) {
   if (name == "OTHERS") return("OTHER")
-  name
+  toupper(name)
+}
+
+discover_source_categories <- function(raw) {
+  nms <- names(raw)
+  known <- intersect(SOURCE_CATEGORIES, nms)
+
+  # In the legacy XLSX, raw fuel categories live before `time_interval`.
+  # Computed share/TTM/helper columns live after it. Use that block to retain
+  # source-specific columns without accidentally migrating derived metrics.
+  ti <- match("time_interval", nms)
+  source_block <- if (!is.na(ti) && ti > 1) nms[seq_len(ti - 1)] else nms
+  source_block <- setdiff(source_block, c("YYYYMMM", "year", "Source", "time_interval"))
+  source_block <- source_block[!grepl("share|TTM|hazard|Uistrom|^Fossil$|^Hybrid$|^Spalte",
+                                      source_block, ignore.case = TRUE)]
+  source_block <- source_block[grepl("^[A-Za-z0-9][A-Za-z0-9 +_-]*$", source_block)]
+
+  unique(c(known, source_block))
 }
 
 # Convert one sheet's wide rows into long-format tibble of registrations
@@ -130,8 +151,9 @@ sheet_to_long <- function(raw, parsed) {
     if (length(s)) as.character(s[1]) else ""
   } else ""
 
-  # Pick the categories actually present in this sheet
-  present_cats <- intersect(SOURCE_CATEGORIES, names(raw))
+  # Pick the categories actually present in this sheet. This intentionally
+  # includes source-specific categories discovered from the raw category block.
+  present_cats <- discover_source_categories(raw)
 
   long <- raw %>%
     select(any_of(c("YYYYMMM", "year", "time_interval", present_cats))) %>%

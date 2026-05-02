@@ -61,6 +61,8 @@ Common categories:
 - `HYBRIDS`
 - `PETROL`
 - `DIESEL`
+- `FLEXFUEL`
+- `PETROL-GAS`
 - `ICE`
 - `OTHER`
 - `TOTAL`
@@ -85,6 +87,7 @@ Common categories:
 - Some markets report `PETROL`/`DIESEL`; others only report a single `ICE`.
 - China uses `EREV`; the model folds EREV into the PHEV-like trajectory line but keeps a separate TTM layer.
 - Türkiye has `HYBRIDS` instead of separate `HEV`/`PHEV` in some source structures.
+- Brazil and Sweden report `FLEXFUEL`; Georgia reports `PETROL-GAS`.
 - Brazil and Georgia needed residual ICE handling because partial category stacks did not cover the full total.
 - New Zealand must be spelled with a space everywhere; `NewZealand` triggers legacy-alias warnings.
 - `South Korea`, `UK`, `USA` and `Türkiye` have explicit label/slug exceptions.
@@ -137,7 +140,17 @@ python scripts/scrape_acea.py 2026 03 --include france,germany
 python scripts/scrape_acea.py 2026 03 --dry-run
 ```
 
-### 4. Regenerate charts locally
+### 4. Audit legacy XLSX categories
+
+Use this only when comparing against a legacy/raw workbook:
+
+```sh
+Rscript scripts/audit_xlsx_csv_categories.R /path/to/bev_share_acea.xlsx
+```
+
+It fails if a non-empty XLSX source category is missing from `data/markets/*.csv`.
+
+### 5. Regenerate charts locally
 
 One market:
 
@@ -159,7 +172,7 @@ Then rebuild the image manifest:
 Rscript -e "source('build_manifest.R'); build_manifest(root='images', base_url='images/')"
 ```
 
-### 5. Deployment
+### 6. Deployment
 
 - GitHub Pages serves this repo at `https://leraffl.github.io/Gallery-TEST/`.
 - TEST Pages is sourced from this TEST repo, not the production repo.
