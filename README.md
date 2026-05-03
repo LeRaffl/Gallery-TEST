@@ -35,8 +35,8 @@ the production gallery.
 | Workflow | Trigger | What it does |
 | --- | --- | --- |
 | `ACEA scrape` | Manual `workflow_dispatch` | Downloads one monthly ACEA press-release PDF, extracts the by-market power-source table, and upserts ACEA-driven `data/markets/*.csv`. If the default ACEA PDF does not exist yet, the workflow exits successfully with no changes. Use `url` for an explicit PDF source. |
-| `R pipeline (BEV trajectories)` | Manual, or push to `data/markets/**.csv` | Audits Submit Data categories, runs `R/run_all.R`, rebuilds charts, `params.csv`, `weights.csv`, posts, and `manifest.json`. It commits outputs back only when requested manually or when triggered by a data-file push, then requests a final Pages rebuild. |
-| `Build manifest` | Push to image/site inputs, or manual | Rebuilds `manifest.json` from generated images, commits it back if needed, then requests a final Pages rebuild. |
+| `R pipeline (BEV trajectories)` | Manual, or push to `data/markets/**.csv` | Audits Submit Data categories, runs `R/run_all.R`, rebuilds charts, `params.csv`, `weights.csv`, posts, and `manifest.json`. It commits outputs back only when requested manually or when triggered by a data-file push; legacy Pages then deploys that commit automatically. |
+| `Build manifest` | Push to image/site inputs, or manual | Rebuilds `manifest.json` from generated images and commits it back if needed; legacy Pages then deploys that commit automatically. |
 
 ## Data Format
 

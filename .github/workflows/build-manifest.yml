@@ -15,7 +15,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write               # erlaubt das Committen von manifest.json
-      pages: write                  # fordert nach Manifest-Commit finalen Pages-Build an
     concurrency:
       group: manifest-${{ github.ref }}
       cancel-in-progress: true      # vermeidet parallele Läufe bei vielen kleinen Pushes
@@ -58,9 +57,3 @@ jobs:
           git pull --rebase
           git push
           echo "committed=true" >> "$GITHUB_OUTPUT"
-
-      - name: Request final Pages rebuild
-        if: ${{ steps.commit_manifest.outputs.committed == 'true' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh api --method POST "repos/${{ github.repository }}/pages/builds"

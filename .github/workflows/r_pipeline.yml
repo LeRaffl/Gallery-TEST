@@ -25,7 +25,6 @@ on:
 
 permissions:
   contents: write   # used when generated outputs are committed back
-  pages: write      # used to request a final legacy Pages rebuild after commit-back
 
 jobs:
   run-pipeline:
@@ -118,12 +117,6 @@ jobs:
           git pull --rebase
           git push
           echo "committed=true" >> "$GITHUB_OUTPUT"
-
-      - name: Request final Pages rebuild
-        if: ${{ steps.commit_outputs.outputs.committed == 'true' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh api --method POST "repos/${{ github.repository }}/pages/builds"
 
       - name: Upload regenerated artifacts (always)
         if: ${{ always() }}
