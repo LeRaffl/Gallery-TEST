@@ -813,7 +813,7 @@ h2 .fb-ctx-btn{width:30px;height:30px;font-size:16px;opacity:.6}
         </div>
         <div class="field">
           <label for="dsPeriod">Month</label>
-          <input id="dsPeriod" type="month" required>
+          <select id="dsPeriod" required></select>
         </div>
         <div class="field">
           <label for="dsSource">Source</label>
@@ -851,6 +851,7 @@ h2 .fb-ctx-btn{width:30px;height:30px;font-size:16px;opacity:.6}
           <button type="button" class="btn" id="dsAddCategory">Add category</button>
         </div>
         <div id="dsCategoryGrid" class="data-submit-cats"></div>
+        <p class="small" id="dsCategoryStatus" style="margin:8px 0 0;color:var(--muted)"></p>
       </div>
 
       <div class="field">
@@ -5702,11 +5703,39 @@ const DS_DEFAULT_CATEGORIES = ['BEV','PHEV','HEV','PETROL','DIESEL','ICE','OTHER
 const DS_KNOWN_CATEGORIES = ['BEV','PHEV','EREV','HEV','HYBRIDS','PETROL','DIESEL','FLEXFUEL','PETROL-GAS','ICE','OTHER','TOTAL','CNG','LPG','FCEV','MHEV'];
 const DS_DEFAULT_VARIANTS = [DEFAULT_VARIANT_LABEL,'HDV','Vans','Private','Industry','Custom','Used Imports'];
 const DS_NEW_MARKET_VALUE = '__new_market__';
+const DS_MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DS_STATE = { markets: [], categories: [], customCategories: [] };
 
 function dsSetStatus(msg){ const el = document.getElementById('dsStatus'); if (el) el.textContent = msg || ''; }
+function dsSetCategoryStatus(msg){ const el = document.getElementById('dsCategoryStatus'); if (el) el.textContent = msg || ''; }
 function dsFormatModelYear(n){
   return Number(n).toFixed(6).replace(/0+$/,'').replace(/\.$/,'');
+}
+function dsMonthValue(year, month){
+  return `${year}-${String(month).padStart(2,'0')}`;
+}
+function dsMonthLabel(value){
+  const m = /^(\d{4})-(\d{2})$/.exec(String(value || '').trim());
+  if (!m) return '';
+  const month = Number(m[2]);
+  return `${DS_MONTH_NAMES[month - 1] || m[2]} ${m[1]}`;
+}
+function dsPopulatePeriodSelect(){
+  const select = document.getElementById('dsPeriod');
+  if (!select) return;
+  const selected = select.value;
+  const now = new Date();
+  const startYear = 2010;
+  const endYear = now.getFullYear() + 1;
+  const options = ['<option value="">Choose month...</option>'];
+  for (let year = endYear; year >= startYear; year -= 1) {
+    for (let month = 12; month >= 1; month -= 1) {
+      const value = dsMonthValue(year, month);
+      options.push(`<option value="${value}">${dsMonthLabel(value)}</option>`);
+    }
+  }
+  select.innerHTML = options.join('');
+  select.value = selected || dsMonthValue(now.getFullYear(), now.getMonth() + 1);
 }
 function dsPeriodParts(monthValue){
   const m = /^(\d{4})-(\d{2})$/.exec(String(monthValue || '').trim());
@@ -5802,20 +5831,26 @@ function dsSelectedMarket(){
     variant: opt.dataset.variant || ''
   };
 }
-function dsOrderedCategories(cats){
+function dsOrderedCategories(cats, options = {}){
   const normalized = (cats || []).map(c => String(c || '').trim().toUpperCase()).filter(Boolean);
   const set = new Set(normalized);
-  if (!normalized.length) DS_DEFAULT_CATEGORIES.forEach(c => set.add(c));
+  if (!normalized.length && options.useDefaults) DS_DEFAULT_CATEGORIES.forEach(c => set.add(c));
   DS_STATE.customCategories.forEach(c => set.add(c));
   const ordered = DS_CATEGORY_ORDER.filter(c => c !== 'TOTAL' && set.has(c));
   [...set].sort().forEach(c => { if (c !== 'TOTAL' && !ordered.includes(c)) ordered.push(c); });
   if (set.has('TOTAL')) ordered.push('TOTAL');
   return ordered;
 }
-function dsRenderCategoryInputs(cats, keepValues = dsCollectCategoryValues()){
-  DS_STATE.categories = dsOrderedCategories(cats);
+function dsRenderCategoryInputs(cats, keepValues = dsCollectCategoryValues(), options = {}){
+  DS_STATE.categories = dsOrderedCategories(cats, { useDefaults: !!options.useDefaults });
   const grid = document.getElementById('dsCategoryGrid');
   if (!grid) return;
+  if (!DS_STATE.categories.length) {
+    grid.innerHTML = `<p class="small" style="grid-column:1/-1;margin:0;color:var(--muted)">Choose a market to load the categories from its CSV.</p>`;
+    dsSetCategoryStatus('');
+    dsUpdatePreview();
+    return;
+  }
   grid.innerHTML = DS_STATE.categories.map(cat => {
     const id = dsCategoryInputId(cat);
     return `
@@ -5826,6 +5861,8 @@ function dsRenderCategoryInputs(cats, keepValues = dsCollectCategoryValues()){
   `;
   }).join('');
   grid.querySelectorAll('input').forEach(input => input.addEventListener('input', dsUpdatePreview));
+  if (options.status) dsSetCategoryStatus(options.status);
+  else dsSetCategoryStatus('');
   dsUpdatePreview();
 }
 async function dsLoadMarkets(){
@@ -5888,13 +5925,16 @@ async function dsLoadMarketCategories(){
     }
     if (!text) throw new Error('could not load market csv');
     const rows = parseCSV(text);
-    const categories = [...new Set(rows.map(r => r.category))];
-    dsRenderCategoryInputs(categories);
+    const categories = [...new Set(rows.map(r => dsNormalizeCategory(r.category)).filter(Boolean))];
+    if (!categories.length) throw new Error('market csv has no categories');
+    dsRenderCategoryInputs(categories, dsCollectCategoryValues(), {
+      status: `Loaded CSV categories for ${market.sheetName}: ${dsOrderedCategories(categories).join(', ')}`
+    });
     dsSetStatus('');
   } catch (err) {
     console.warn('[data-submission] could not load market CSV:', err);
     dsRenderCategoryInputs([]);
-    dsSetStatus('Using default categories.');
+    dsSetStatus('Could not load this market CSV; categories are hidden to avoid wrong rows.');
   }
 }
 function dsSetNewMarketFieldsVisible(visible){
@@ -5907,7 +5947,10 @@ function dsHandleMarketChange(){
   if (isNew) {
     dsSetStatus('');
     dsSyncNewSlug();
-    dsRenderCategoryInputs([]);
+    dsRenderCategoryInputs([], dsCollectCategoryValues(), {
+      useDefaults: true,
+      status: `Using starter categories for a new market: ${DS_DEFAULT_CATEGORIES.join(', ')}`
+    });
   } else {
     dsLoadMarketCategories();
   }
@@ -6075,10 +6118,7 @@ function dataSubmissionInit(){
   const form = document.getElementById('dataSubmissionForm');
   if (!form) return;
   const period = document.getElementById('dsPeriod');
-  if (period && !period.value) {
-    const now = new Date();
-    period.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2,'0')}`;
-  }
+  dsPopulatePeriodSelect();
   dsSetStatus('');
   dsPopulateDatalists();
   dsRenderCategoryInputs([]);

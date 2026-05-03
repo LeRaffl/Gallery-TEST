@@ -35,8 +35,8 @@ the production gallery.
 | Workflow | Trigger | What it does |
 | --- | --- | --- |
 | `ACEA scrape` | Manual `workflow_dispatch` | Downloads one monthly ACEA press-release PDF, extracts the by-market power-source table, and upserts ACEA-driven `data/markets/*.csv`. If the default ACEA PDF does not exist yet, the workflow exits successfully with no changes. Use `url` for an explicit PDF source. |
-| `R pipeline (BEV trajectories)` | Manual, or push to `data/markets/**.csv` | Runs `R/run_all.R`, rebuilds charts, `params.csv`, `weights.csv`, posts, and `manifest.json`. It commits outputs back only when requested manually or when triggered by a data-file push. |
-| `Build manifest` | Push to image/site inputs, or manual | Rebuilds `manifest.json` from generated images and commits it back if needed. |
+| `R pipeline (BEV trajectories)` | Manual, or push to `data/markets/**.csv` | Audits Submit Data categories, runs `R/run_all.R`, rebuilds charts, `params.csv`, `weights.csv`, posts, and `manifest.json`. It commits outputs back only when requested manually or when triggered by a data-file push, then requests a final Pages rebuild. |
+| `Build manifest` | Push to image/site inputs, or manual | Rebuilds `manifest.json` from generated images, commits it back if needed, then requests a final Pages rebuild. |
 
 ## Data Format
 
@@ -112,7 +112,9 @@ Common categories:
 - Pick an existing market, or choose `New market / variant` for new countries,
   vans, HDV, private/industry slices or other source scopes.
 - Enter period and source.
-- Enter absolute registration counts.
+- Enter absolute registration counts. Existing markets load their input
+  categories from that market's CSV; if the CSV cannot be loaded, the category
+  inputs stay hidden instead of falling back to a misleading default set.
 - Use `Additional category` for source-specific columns such as `FLEXFUEL`.
 - The form generates canonical CSV rows and opens a review submission.
 - New market submissions include a proposed `_index.csv` row plus the data rows.
@@ -200,6 +202,7 @@ Useful quick checks:
 
 ```sh
 python3 -m py_compile scripts/scrape_acea.py
+node scripts/audit_submit_categories.js
 Rscript -e "files <- list.files('R', pattern='[.]R$', recursive=TRUE, full.names=TRUE); for (f in files) parse(f); cat('Parsed', length(files), 'R files\n')"
 jq empty manifest.json
 rg -n "NewZealand|Southkorea|Hdv|Newzealand" params.csv weights.csv manifest.json posts data/markets/_index.csv
