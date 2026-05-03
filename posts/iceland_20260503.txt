@@ -1,7 +1,7 @@
 🇮🇸 Iceland - April 26 - BEV Trajectory
 41.9% BEV
 15.9% PHEV
-42.2% ICE (of which 22.7%p were HEV)
+42.2% ICE (of which 22.6%p were HEV)
 
 Trailing 12 months are:
 40.6% BEV
