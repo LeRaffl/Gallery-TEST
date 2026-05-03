@@ -35,8 +35,9 @@ the production gallery.
 | Workflow | Trigger | What it does |
 | --- | --- | --- |
 | `ACEA scrape` | Manual `workflow_dispatch` | Downloads one monthly ACEA press-release PDF, extracts the by-market power-source table, and upserts ACEA-driven `data/markets/*.csv`. If the default ACEA PDF does not exist yet, the workflow exits successfully with no changes. Use `url` for an explicit PDF source. |
-| `R pipeline (BEV trajectories)` | Manual, or push to `data/markets/**.csv` | Audits Submit Data categories, runs `R/run_all.R`, rebuilds charts, `params.csv`, `weights.csv`, posts, and `manifest.json`. It commits outputs back only when requested manually or when triggered by a data-file push; legacy Pages then deploys that commit automatically. |
-| `Build manifest` | Push to image/site inputs, or manual | Rebuilds `manifest.json` from generated images and commits it back if needed; legacy Pages then deploys that commit automatically. |
+| `R pipeline (BEV trajectories)` | Manual, or push to `data/markets/**.csv` | Audits Submit Data categories, runs `R/run_all.R`, rebuilds charts, `params.csv`, `weights.csv`, posts, and `manifest.json`, commits generated outputs when appropriate, then deploys Pages from that generated workspace. |
+| `Build manifest` | Push to image/site inputs, schedule, or manual | Rebuilds `manifest.json` from generated images, commits it back if needed, then deploys Pages from that rebuilt workspace. |
+| `Deploy Pages` | Manual, or push to site assets | Deploys normal site/UI changes that do not need the R pipeline. Bot-generated chart commits are skipped here because their source workflow deploys them directly. |
 
 ## Data Format
 
@@ -192,8 +193,12 @@ Rscript -e "source('build_manifest.R'); build_manifest(root='images', base_url='
 ### 6. Deployment
 
 - GitHub Pages serves this repo at `https://leraffl.github.io/Gallery-TEST/`.
+- TEST Pages must use `GitHub Actions` as its Pages source, not legacy
+  branch deployment. Otherwise Pages deploys every `main` push immediately and
+  cannot wait for the R pipeline / manifest sequence.
 - TEST Pages is sourced from this TEST repo, not the production repo.
-- Merging a tested PR to `main` updates the TEST deployment.
+- Merging a tested PR to `main` updates the TEST deployment through the
+  appropriate workflow.
 - Production is a separate manual step.
 
 ## Pre-Push Sanity Checks

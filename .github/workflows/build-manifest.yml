@@ -12,9 +12,12 @@ on:
 
 jobs:
   build:
+    if: ${{ github.event_name != 'push' || github.actor != 'github-actions[bot]' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write               # erlaubt das Committen von manifest.json
+      pages: write                  # deploys the rebuilt manifest when Pages source is GitHub Actions
+      id-token: write
     concurrency:
       group: manifest-${{ github.ref }}
       cancel-in-progress: true      # vermeidet parallele Läufe bei vielen kleinen Pushes
@@ -57,3 +60,17 @@ jobs:
           git pull --rebase
           git push
           echo "committed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Configure Pages
+        if: ${{ steps.commit_manifest.outputs.committed == 'true' }}
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        if: ${{ steps.commit_manifest.outputs.committed == 'true' }}
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Deploy Pages
+        if: ${{ steps.commit_manifest.outputs.committed == 'true' }}
+        uses: actions/deploy-pages@v4

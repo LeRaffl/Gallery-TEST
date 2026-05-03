@@ -25,6 +25,8 @@ on:
 
 permissions:
   contents: write   # used when generated outputs are committed back
+  pages: write      # deploys the generated site when Pages source is GitHub Actions
+  id-token: write
 
 jobs:
   run-pipeline:
@@ -117,6 +119,20 @@ jobs:
           git pull --rebase
           git push
           echo "committed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Configure Pages
+        if: ${{ github.event_name == 'push' || inputs.commit_outputs == 'true' }}
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        if: ${{ github.event_name == 'push' || inputs.commit_outputs == 'true' }}
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Deploy Pages
+        if: ${{ github.event_name == 'push' || inputs.commit_outputs == 'true' }}
+        uses: actions/deploy-pages@v4
 
       - name: Upload regenerated artifacts (always)
         if: ${{ always() }}
